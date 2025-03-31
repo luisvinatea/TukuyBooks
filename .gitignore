@@ -1,3 +1,7 @@
-ByteBooks/PythonDocs/outputs/
-ByteBooks/PythonDocs/__pycache__/
 *.pyc
+__pycache__/
+PythonDocs/outputs/*.jl
+PythonDocs/outputs/*.epub
+PythonDocs/outputs/*.pdf
+PythonDocs/outputs/epub_link_check_*.log
+PythonDocs/outputs/job_state/
