@@ -1,20 +1,27 @@
 name: Build and Release
+
 on:
   push:
     branches: [main]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+
       - name: Install Dependencies
         run: |
           pip install scrapy ebooklib beautifulsoup4
           sudo apt-get install -y calibre ghostscript
+
       - name: Run Pipeline
         run: |
           cd PythonDocs
@@ -23,11 +30,13 @@ jobs:
           python scripts/EpubChecker.py
           bash scripts/book_optimizer.sh <<< "outputs/"
           ebook-convert outputs/optimized/Python3Docs.epub outputs/optimized/Python3Docs.pdf
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: outputs
           path: PythonDocs/outputs/
+
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1

@@ -42,18 +42,18 @@ This project scrapes the Python 3 documentation from `docs.python.org/3/`, gener
 4. **Optimize Files**:
 
    ```bash
-   bash scripts/book_optimizer.sh
+   bash scripts/BookOptimizer.sh
    ```
 
    - Enter `outputs/` as the target directory.
    - Outputs optimized files to `outputs/optimized/`.
 5. **Final Tweaks**:
 
-   - Open `outputs/optimized/Python3Docs.epub` in Sigil for manual adjustments.
+   - Open `outputs/optimized/"Python 3.13.2 Documentation - Python Software Foundation.epub"` in Sigil for manual adjustments.
 6. **Convert to PDF**:
 
    ```bash
-   ebook-convert outputs/optimized/Python3Docs.epub outputs/optimized/Python3Docs.pdf
+   ebook-convert outputs/optimized/"Python 3.13.2 Documentation - Python Software Foundation.epub" outputs/optimized/"Python 3.13.2 Documentation - Python Software Foundation.pdf"
    ```
 7. **Host PDFs**:
 
@@ -62,7 +62,7 @@ This project scrapes the Python 3 documentation from `docs.python.org/3/`, gener
 ## Contributing
 
 - **Tracking Logs**: Check `outputs/epub_link_check_*.log` for broken links. Submit issues or PRs to fix `PythonDocsSpider.py` or `MakeEbook.py`.
-- **Optimizations**: Enhance `book_optimizer.sh` for better compression or format support.
+- **Optimizations**: Enhance `BookOptimizer.sh` for better compression or format support.
 - **Issues**: Report bugs or suggest features via GitHub Issues.
 
 ## License
