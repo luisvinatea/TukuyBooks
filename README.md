@@ -1,4 +1,4 @@
-# ByteBooks: Transforming Open-Source Internet into Free Access Knowledge
+# TukuyBooks: Transforming Open-Source Internet into Free Access Knowledge
 
 Welcome to **ByteBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
 
