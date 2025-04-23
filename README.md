@@ -1,10 +1,10 @@
 # TukuyBooks: Transforming Open-Source Internet into Free Access Knowledge
 
-Welcome to **ByteBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
+Welcome to **TukuyBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
 
 ## Vision
 
-ByteBooks aims to:
+TukuyBooks aims to:
 
 - Capture valuable documentation from open-source websites.
 - Transform it into portable, optimized formats (EPUB, PDF).
@@ -36,7 +36,7 @@ To contribute or run any pipeline, you’ll need:
 
 ## Directory Structure
 
-- `ByteBooks/`: Root directory.
+- `TukuyBooks/`: Root directory.
   - `PythonDocs/`: Subdirectory for the Python documentation pipeline.
     - `spiders/`: Contains `PythonDocsSpider.py`.
     - `scripts/`: Tools like `MakeEbook.py`, `EpubChecker.py`, `BookOptimizer.sh`.
@@ -54,7 +54,7 @@ Each pipeline follows these steps:
 4. **Optimize**: Reduce file size and improve formatting.
 5. **Tweak**: Manually adjust the EPUB in Sigil if needed.
 6. **Convert**: Generate a PDF from the optimized EPUB.
-7. **Release**: Host the PDF in [GitHub Releases](https://github.com/luisvinatea/ByteBooks/releases).
+7. **Release**: Host the PDF in [GitHub Releases](https://github.com/luisvinatea/TukuyBooks/releases).
 
 See individual pipeline READMEs (e.g., [PythonDocs](PythonDocs/README.md)) for specific instructions.
 
@@ -71,7 +71,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 
-ByteBooks is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+TukuyBooks is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## Get Involved
 
