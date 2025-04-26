@@ -21,13 +21,13 @@ OPTIMIZED_DIR="$TARGET_DIR/optimized"
 mkdir -p "$OPTIMIZED_DIR"
 
 # Check if required tools are installed
-if ! command -v gs &> /dev/null; then
+if ! command -v gs &>/dev/null; then
     echo "Error: Ghostscript (gs) is not installed"
     echo "Install it with: sudo pacman -S ghostscript"
     exit 1
 fi
 
-if ! command -v ebook-convert &> /dev/null; then
+if ! command -v ebook-convert &>/dev/null; then
     echo "Error: Calibre (ebook-convert) is not installed"
     echo "Install it with: sudo pacman -S calibre"
     exit 1
@@ -48,16 +48,14 @@ for file in "$TARGET_DIR"/*.pdf; do
 
         echo "Processing PDF: $filename"
 
-        gs -sDEVICE=pdfwrite \
-           -dCompatibilityLevel=1.7 \
-           -dPDFSETTINGS=/screen \
-           -dNOPAUSE \
-           -dQUIET \
-           -dBATCH \
-           -sOutputFile="$OPTIMIZED_DIR/$filename" \
-           "$file"
-
-        if [ $? -eq 0 ]; then
+        if gs -sDEVICE=pdfwrite \
+            -dCompatibilityLevel=1.7 \
+            -dPDFSETTINGS=/screen \
+            -dNOPAUSE \
+            -dQUIET \
+            -dBATCH \
+            -sOutputFile="$OPTIMIZED_DIR/$filename" \
+            "$file"; then
             rm "$file"
             echo "Optimized and deleted original: $filename"
             ((count++))
@@ -79,13 +77,11 @@ for file in "$TARGET_DIR"/*.epub; do
 
         echo "Processing EPUB: $filename"
 
-        ebook-convert "$file" "$OPTIMIZED_DIR/$filename" \
+        if ebook-convert "$file" "$OPTIMIZED_DIR/$filename" \
             --max-toc-links 0 \
             --level1-toc "" \
             --level2-toc "" \
-            --level3-toc ""
-
-        if [ $? -eq 0 ]; then
+            --level3-toc ""; then
             rm "$file"
             echo "Optimized and deleted original: $filename"
             ((count++))

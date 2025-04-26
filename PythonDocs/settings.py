@@ -1,4 +1,8 @@
-# Scrapy settings for PythonDocs project
+"""settings.py
+This file contains the settings for the Scrapy
+project that scrapes Python documentation.
+It configures the project name, user agent, output format, and other settings.
+"""
 
 BOT_NAME = "PythonDocs"
 
@@ -6,7 +10,10 @@ SPIDER_MODULES = ["PythonDocs.spiders"]
 NEWSPIDER_MODULE = "PythonDocs.spiders"
 
 # Crawl responsibly by identifying yourself on the user-agent
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+)
 
 # Obey robots.txt rules (set to False for docs.python.org)
 ROBOTSTXT_OBEY = False

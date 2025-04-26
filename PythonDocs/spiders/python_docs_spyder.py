@@ -131,6 +131,26 @@ class PythonDocsSpider(scrapy.Spider):
                         }
                     )
 
+    def _get_soup(self, response: Response):
+        content = (
+            response.css("div.document").get()
+            or response.css("div[role='main']").get()
+            or response.css("div.body").get()
+            or response.css("body").get(default="<p>No content available</p>")
+        )
+        return BeautifulSoup(content, 'html.parser')
+
+    def _extract_internal_links(self, soup: BeautifulSoup) -> dict:
+        links = {}
+        for link in soup.find_all('a', class_='reference internal'):
+            # Ensure we only process Tag elements
+            if not isinstance(link, Tag):
+                continue
+            href = link.get('href')
+            if href:
+                links[href] = link.get_text(strip=True) or "Untitled"
+        return links
+
     def parse_content(self, response: Response):
         """
         Parse the content of a documentation page and extract relevant
@@ -140,16 +160,15 @@ class PythonDocsSpider(scrapy.Spider):
         Yields:
             dict: A dictionary containing chapter information.
         """
-        content_type = response.headers.get("Content-Type", b"")
-        if not content_type or not content_type.startswith(b"text"):
-            self.logger.info(f"Skipping non-text response: {response.url}")
+        content_type = response.headers.get("Content-Type") or b""
+        if not content_type.startswith(b"text"):
+            self.logger.info(
+                f"Skipping non-text response: {response.url}"
+            )
             return
 
         if response.url.endswith(
-            (
-                '.tar.bz2', '.epub', '.pdf', '.zip',
-                '.png', '.jpg', '.gif'
-            )
+            ('.tar.bz2', '.epub', '.pdf', '.zip', '.png', '.jpg', '.gif')
         ):
             self.logger.info(f"Skipping binary file: {response.url}")
             return
@@ -158,47 +177,32 @@ class PythonDocsSpider(scrapy.Spider):
         priority = response.meta["priority"]
         level = response.meta.get("level", 1)
 
-        content = (
-            response.css("div.document").get() or
-            response.css("div[role='main']").get() or
-            response.css("div.body").get() or
-            response.css("body").get(default="<p>No content available</p>")
-        )
+        soup = self._get_soup(response)
+        internal_links = self._extract_internal_links(soup)
 
-        soup = BeautifulSoup(content, 'html.parser')
-        internal_links = {}
-        for link in soup.find_all('a', class_='reference internal'):
-            if isinstance(link, Tag):
-                href = link.get('href')
-                if href:
-                    internal_links[href] = (
-                        link.get_text(strip=True) or "Untitled"
-                    )
-
-        content_str = str(soup)
-        ids = [
-            tag.get("id")
-            for tag in soup.find_all(id=True)
-            if isinstance(tag, Tag)
-        ]
-        self.logger.debug(f"IDs in {response.url}: {ids[:10]}")
-        content_hash = hashlib.md5(content_str.encode("utf-8")).hexdigest()
+        md5_hash = hashlib.md5(str(soup).encode("utf-8")).hexdigest()
         if (
-            response.url in self.visited_urls and
-            self.visited_urls[response.url] == content_hash
+            response.url in self.visited_urls
+            and self.visited_urls[response.url] == md5_hash
         ):
             self.logger.debug(f"Skipping unchanged content: {response.url}")
             return
+
+        ids = [tag.get('id') for tag in soup.find_all(id=True)
+               if isinstance(tag, Tag)]
+        self.logger.debug(
+            f"IDs in {response.url}: {ids[:10]}"
+        )
 
         item = {
             "title": title,
             "priority": priority,
             "url": response.url,
-            "content": content_str,
+            "content": str(soup),
             "level": level,
             "internal_links": internal_links
         }
-        self.visited_urls[response.url] = content_hash
+        self.visited_urls[response.url] = md5_hash
         yield item
 
         content_links = response.css(
@@ -211,9 +215,11 @@ class PythonDocsSpider(scrapy.Spider):
             if relative_url is not None and self._is_valid_link(relative_url):
                 full_url = urljoin(response.url, relative_url)
                 if full_url not in self.visited_urls:
-                    link_title = link.css("::text").get(
-                        default="Untitled"
-                    ).strip()
+                    link_title = (
+                        link.css("::text")
+                        .get(default="Untitled")
+                        .strip()
+                    )
                     yield scrapy.Request(
                         url=full_url,
                         callback=self.parse_content,
