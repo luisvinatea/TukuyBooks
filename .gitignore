@@ -5,3 +5,4 @@ PythonDocs/outputs/*.epub
 PythonDocs/outputs/*.pdf
 PythonDocs/outputs/epub_link_check_*.log
 PythonDocs/outputs/job_state/
+practice/
