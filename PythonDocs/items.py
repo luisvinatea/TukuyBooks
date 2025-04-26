@@ -7,6 +7,11 @@ import scrapy
 
 
 class BytebooksItem(scrapy.Item):
+
+    title = scrapy.Field()
+    author = scrapy.Field()
+    price = scrapy.Field()
+    rating = scrapy.Field()
+    publication_date = scrapy.Field()
     # define the fields for your item here like:
     # name = scrapy.Field()
-    pass
