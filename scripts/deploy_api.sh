@@ -29,7 +29,7 @@ fi
 # Verify we don't have configuration conflicts
 if [ -f "$BACKEND_DIR/now.json" ]; then
     echo "⚠️ Warning: now.json found, which may conflict with vercel.json"
-    read -p "Do you want to remove now.json? (y/n): " confirm
+    read -r -p "Do you want to remove now.json? (y/n): " confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         rm "$BACKEND_DIR/now.json"
         echo "✅ Removed now.json to prevent conflicts"
@@ -43,7 +43,7 @@ NESTED_VERCEL_FILES=$(find "$BACKEND_DIR" -path "$BACKEND_DIR/vercel.json" -prun
 if [ -n "$NESTED_VERCEL_FILES" ]; then
     echo "⚠️ Warning: Found nested vercel.json files that may cause conflicts:"
     echo "$NESTED_VERCEL_FILES"
-    read -p "Do you want to remove these nested config files? (y/n): " confirm
+    read -r -p "Do you want to remove these nested config files? (y/n): " confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         for file in $NESTED_VERCEL_FILES; do
             rm "$file"
@@ -61,14 +61,22 @@ cd "$BACKEND_DIR" || exit 1
 # Run deployment with production flag if specified
 if [ "$1" == "--prod" ]; then
     echo "🔥 Deploying to PRODUCTION environment..."
-    vercel --prod | tee "../$LOG_FILE"
+    if vercel --prod | tee "../$LOG_FILE"; then
+        DEPLOYMENT_SUCCESS=true
+    else
+        DEPLOYMENT_SUCCESS=false
+    fi
 else
     echo "🧪 Deploying to PREVIEW environment..."
-    vercel | tee "../$LOG_FILE"
+    if vercel | tee "../$LOG_FILE"; then
+        DEPLOYMENT_SUCCESS=true
+    else
+        DEPLOYMENT_SUCCESS=false
+    fi
 fi
 
 # Check deployment status
-if [ $? -eq 0 ]; then
+if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "✅ Deployment completed successfully!"
     DEPLOY_URL=$(grep -o 'https://[^ ]*\.vercel\.app' "../$LOG_FILE" | head -1)
     if [ -n "$DEPLOY_URL" ]; then
