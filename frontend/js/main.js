@@ -1383,12 +1383,16 @@ function showNotification(message, type = "info") {
       <i class="fas fa-${icon}" aria-hidden="true"></i>
     </div>
     <div class="notification-content">
-      <p>${message}</p>
+      <p></p>
     </div>
     <button class="notification-close" aria-label="Close notification">
       <i class="fas fa-times" aria-hidden="true"></i>
     </button>
   `;
+
+  // Safely set the message text
+  const messageElement = notification.querySelector(".notification-content p");
+  messageElement.textContent = message;
 
   // Add close functionality
   const closeBtn = notification.querySelector(".notification-close");
