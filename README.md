@@ -13,6 +13,14 @@ The TukuyBooks web interface allows you to:
 
 **Visit the online interface:** [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/)
 
+## Features
+
+- **Web Scraping**: Capture documentation from open-source websites with custom spiders
+- **Ebook Generation**: Transform web content into EPUB and PDF formats with proper formatting
+- **Responsive UI**: Mobile-friendly interface that works across devices
+- **Real-time Status Updates**: Monitor scraping progress with real-time notifications
+- **Offline Reading**: Download ebooks for offline reading on e-readers or other devices
+
 ## Vision
 
 TukuyBooks aims to:
@@ -33,7 +41,7 @@ Below are the active spider pipelines transforming specific websites into free k
   - Outputs: `Python3Docs.epub`, `Python3Docs.pdf`
   - See [PythonDocs README](PythonDocs/README.md) for details.
 
-*More pipelines coming soon! Suggest new websites via [Issues](#contributing).*
+*More pipelines coming soon! Suggest new websites via [Issues](https://github.com/luisvinatea/TukuyBooks/issues).*
 
 ## General Prerequisites
 
@@ -47,103 +55,36 @@ To contribute or run any pipeline, you’ll need:
 
 ## Project Structure
 
-The project is organized into the structure:
+The project is organized into the following structure:
 
-```text
+```plaintext
 TukuyBooks/
-│
-├── backend/             # Backend code
-│   ├── api/             # Flask API for the frontend
-│   ├── outputs/         # Generated files (JL, EPUB, PDF)
-│   ├── scripts/         # Utility scripts for ebook generation
-│   ├── spiders/         # Scrapy spiders for different sites
-│   └── utils/           # Common utility functions
-│
-├── frontend/            # Frontend code (deploys to GitHub Pages)
-│   ├── assets/          # Images and other assets
-│   ├── components/      # Reusable UI components
+├── backend/              # Backend API and server
+│   ├── api/             # Flask API for the web interface
+│   ├── outputs/         # Generated ebooks and intermediate files
+│   ├── scripts/         # Utilities for ebook generation
+│   ├── spiders/         # Scrapy spiders for different documentation sites
+│   └── utils/           # Shared utility functions
+├── frontend/            # Web interface
 │   ├── css/             # Stylesheets
-│   └── js/              # JavaScript files
-│
-├── PythonDocs/          # Legacy structure (being migrated)
-├── .github/workflows/   # GitHub Actions workflows
-└── CONTRIBUTING.md, LICENSE, README.md, etc.
+│   ├── js/              # Client-side JavaScript
+│   └── index.html       # Main HTML file
+└── scrapy.cfg           # Scrapy configuration file
 ```
 
-## How to Use
+## Frontend Architecture
 
-### Option 1: Web Interface (Easiest)
+The TukuyBooks web interface is built with vanilla JavaScript and structured for simplicity:
 
-Visit [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/) to:
+- **API Client**: The `api.js` file provides a clean interface to communicate with the backend.
+- **UI Components**: Modular components for different sections (ebook cards, notifications, etc.).
+- **Responsive Design**: Fully responsive layout that works on mobile, tablet, and desktop.
+- **Event-Driven**: Uses event listeners to handle user interactions and state changes.
 
-1. Select a documentation source
-2. Generate EPUB/PDF files
-3. Download the results
+Key features of the frontend:
 
-### Option 2: Local Setup
-
-To run locally:
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/luisvinatea/TukuyBooks.git
-   cd TukuyBooks
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-
-3. Run a spider:
-
-   ```bash
-   cd backend
-   scrapy crawl python_docs -o outputs/python_docs.jl
-   ```
-
-4. Generate an ebook:
-
-   ```bash
-   python -m backend.scripts.make_ebook
-   ```
-
-5. Run the API (optional):
-
-   ```bash
-   python backend/api/app.py
-   ```
-
-## Workflow
-
-Each pipeline follows these steps:
-
-1. **Crawl**: Use a Scrapy spider to scrape a target website.
-2. **Generate EPUB**: Convert scraped data into an EPUB file.
-3. **Check Links**: Validate EPUB for broken links and log issues.
-4. **Optimize**: Reduce file size and improve formatting.
-5. **Convert**: Generate a PDF from the optimized EPUB.
-6. **Download**: Access the files through the web interface.
-
-## Contributing
-
-We welcome contributions to expand ByteBooks! Here’s how you can help:
-
-- **New Pipelines**: Propose or build a spider for a new open-source website (e.g., via Issues).
-- **Fix Broken Links**: Analyze logs (e.g., `epub_link_check_*.log`) and submit PRs.
-- **Optimize Tools**: Enhance scripts like `BookOptimizer.sh` or `MakeEbook.py`.
-- **Report Bugs**: Open an Issue with details.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## License
-
-TukuyBooks is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
-## Get Involved
-
-- Star this repo to show support!
-- Fork and submit Pull Requests.
-- Join the discussion in [Issues](https://github.com/luisvinatea/ByteBooks/issues).
+- Real-time progress tracking for spider processes
+- Notifications system for user feedback
+- Automatic detection of available ebooks
+- Client-side validation to prevent errors
+- Mobile-first responsive design

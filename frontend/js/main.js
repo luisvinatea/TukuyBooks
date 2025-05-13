@@ -30,9 +30,21 @@ const closeBtn = document.querySelector(".close-btn");
 let selectedSpider = null;
 let statusCheckInterval = null;
 let isProcessing = false;
+let notificationTimeout = null;
 
 // Initialize the application
 async function init() {
+  // Set up image loading handlers
+  setupImageLoadHandlers();
+
+  // Validate backend connection
+  if (!(await validateBackendConnection())) {
+    showNotification(
+      "Could not connect to the backend server. Some features may not work.",
+      "warning"
+    );
+  }
+
   // Load available spiders
   await loadSpiders();
 
@@ -41,6 +53,48 @@ async function init() {
 
   // Set up event listeners
   setupEventListeners();
+}
+
+// Set up image loading handlers
+function setupImageLoadHandlers() {
+  // Add load event to all images
+  const images = document.querySelectorAll("img");
+  images.forEach((img) => {
+    img.addEventListener("load", function () {
+      this.classList.add("loaded");
+    });
+
+    // If already loaded (e.g., from cache), add loaded class
+    if (img.complete) {
+      img.classList.add("loaded");
+    }
+  });
+
+  // Monitor for dynamically added images using MutationObserver
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.addedNodes) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            // Element node
+            const images = node.querySelectorAll("img");
+            images.forEach((img) => {
+              img.addEventListener("load", function () {
+                this.classList.add("loaded");
+              });
+
+              if (img.complete) {
+                img.classList.add("loaded");
+              }
+            });
+          }
+        });
+      }
+    });
+  });
+
+  // Start observing
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // Load available spiders from API
@@ -259,6 +313,9 @@ async function handleRefreshEbooks() {
     refreshBtn.disabled = true;
   }
 
+  // Show notification
+  showNotification("Refreshing available ebooks...", "info");
+
   // Refresh ebooks
   await loadAvailableEbooks();
 
@@ -286,15 +343,45 @@ function handleSpiderSelection() {
   }
 }
 
+// Validate spider selection
+function validateSpiderSelection() {
+  if (!selectedSpider) {
+    showNotification("Please select a documentation source", "warning");
+    return false;
+  }
+  return true;
+}
+
+// Validate connection to backend
+async function validateBackendConnection() {
+  try {
+    // Try to fetch spiders as a simple check
+    await api.getSpiders();
+    return true;
+  } catch (error) {
+    console.error("Backend connection error:", error);
+    showModal(
+      "Connection Error",
+      "Could not connect to the backend server. Please make sure the server is running and try again."
+    );
+    return false;
+  }
+}
+
 // Handle run spider button click
 async function handleRunSpider() {
   if (!selectedSpider || isProcessing) return;
+
+  if (!validateSpiderSelection()) return;
+
+  if (!(await validateBackendConnection())) return;
 
   try {
     isProcessing = true;
     runSpiderBtn.disabled = true;
 
     showStatus("starting", "Starting the spider...");
+    showNotification("Starting spider process...", "info");
 
     const result = await api.runSpider(selectedSpider);
     console.log("Spider started:", result);
@@ -304,6 +391,7 @@ async function handleRunSpider() {
   } catch (error) {
     console.error("Error running spider:", error);
     showStatus("error", "Failed to start the spider. Please try again.");
+    showNotification("Failed to start the spider: " + error.message, "error");
     isProcessing = false;
     runSpiderBtn.disabled = false;
   }
@@ -350,6 +438,12 @@ async function checkSpiderStatus() {
       updateProgress(100);
       createEbookBtn.disabled = false;
 
+      // Show notification when completed
+      showNotification(
+        "Spider completed successfully! You can now generate an ebook.",
+        "success"
+      );
+
       // Stop checking status
       if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
@@ -361,6 +455,7 @@ async function checkSpiderStatus() {
   } catch (error) {
     console.error("Error checking spider status:", error);
     showStatus("error", "Failed to check spider status.");
+    showNotification("Error checking spider status", "error");
   }
 }
 
@@ -399,11 +494,9 @@ function resetStatus() {
 async function handleCreateEbook() {
   if (!selectedSpider || isProcessing) return;
 
-  // Validate selection
-  if (!selectedSpider) {
-    showModal("Error", "Please select a documentation source first.");
-    return;
-  }
+  if (!validateSpiderSelection()) return;
+
+  if (!(await validateBackendConnection())) return;
 
   // Get selected format
   const format =
@@ -424,33 +517,34 @@ async function handleCreateEbook() {
     closeModal();
 
     if (format === "epub" && result.epub_path) {
-      showModal(
-        "Success",
-        "EPUB created successfully! You can now download it.",
-        () => {
-          window.location.href = api.getDownloadUrl(
-            result.epub_path.split("/").pop()
-          );
+      showNotification(`EPUB created successfully!`, "success");
 
-          // Refresh the ebooks list after creation
-          loadAvailableEbooks();
-        }
-      );
+      // Start download automatically
+      setTimeout(() => {
+        window.location.href = api.getDownloadUrl(
+          result.epub_path.split("/").pop()
+        );
+      }, 1000);
+
+      // Refresh the ebooks list after creation
+      loadAvailableEbooks();
     } else if (format === "pdf" && result.pdf_path) {
-      showModal(
-        "Success",
-        "PDF created successfully! You can now download it.",
-        () => {
-          window.location.href = api.getDownloadUrl(
-            result.pdf_path.split("/").pop()
-          );
+      showNotification(`PDF created successfully!`, "success");
 
-          // Refresh the ebooks list after creation
-          loadAvailableEbooks();
-        }
-      );
+      // Start download automatically
+      setTimeout(() => {
+        window.location.href = api.getDownloadUrl(
+          result.pdf_path.split("/").pop()
+        );
+      }, 1000);
+
+      // Refresh the ebooks list after creation
+      loadAvailableEbooks();
     } else {
-      showModal("Success", `${format.toUpperCase()} created successfully!`);
+      showNotification(
+        `${format.toUpperCase()} created successfully!`,
+        "success"
+      );
 
       // Refresh the ebooks list after creation
       loadAvailableEbooks();
@@ -461,9 +555,9 @@ async function handleCreateEbook() {
   } catch (error) {
     console.error("Error creating ebook:", error);
     closeModal();
-    showModal(
-      "Error",
-      `Failed to create ${format.toUpperCase()}. Please try again.`
+    showNotification(
+      `Failed to create ${format.toUpperCase()}: ${error.message}`,
+      "error"
     );
     isProcessing = false;
     createEbookBtn.disabled = false;
@@ -475,6 +569,7 @@ function handleDownload(event) {
   event.preventDefault();
   const filename = event.currentTarget.dataset.filename;
   if (filename) {
+    showNotification(`Downloading ${filename}...`, "info");
     window.location.href = api.getDownloadUrl(filename);
   }
 }
@@ -500,6 +595,77 @@ function showModal(title, message, onOk) {
 // Close modal
 function closeModal() {
   modal.style.display = "none";
+}
+
+// Show notification
+function showNotification(message, type = "info") {
+  // Clear any existing notification
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+    notificationTimeout = null;
+  }
+
+  // Check if notification container exists, create if not
+  let notificationContainer = document.getElementById("notification-container");
+  if (!notificationContainer) {
+    notificationContainer = document.createElement("div");
+    notificationContainer.id = "notification-container";
+    document.body.appendChild(notificationContainer);
+  }
+
+  // Create notification element
+  const notification = document.createElement("div");
+  notification.className = `notification notification-${type}`;
+
+  // Add icon based on type
+  let icon;
+  switch (type) {
+    case "success":
+      icon = "check-circle";
+      break;
+    case "error":
+      icon = "exclamation-circle";
+      break;
+    case "warning":
+      icon = "exclamation-triangle";
+      break;
+    default:
+      icon = "info-circle";
+  }
+
+  notification.innerHTML = `
+    <i class="fas fa-${icon}"></i>
+    <span>${message}</span>
+    <button class="notification-close"><i class="fas fa-times"></i></button>
+  `;
+
+  // Add close event
+  notification
+    .querySelector(".notification-close")
+    .addEventListener("click", () => {
+      notification.classList.add("notification-closing");
+      setTimeout(() => {
+        notification.remove();
+      }, 300);
+    });
+
+  // Add to container
+  notificationContainer.appendChild(notification);
+
+  // Show with animation
+  setTimeout(() => {
+    notification.classList.add("notification-visible");
+  }, 10);
+
+  // Auto-remove after 5 seconds
+  notificationTimeout = setTimeout(() => {
+    notification.classList.add("notification-closing");
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 5000);
+
+  return notification;
 }
 
 // Initialize the app when DOM is fully loaded
