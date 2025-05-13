@@ -19,5 +19,3 @@ def handler(environ, start_response):
     WSGI handler function for processing requests
     """
     return app(environ, start_response)
-    # Simulate WSGI interface for Vercel
-    return app(environ, start_response)

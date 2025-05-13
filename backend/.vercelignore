@@ -1,0 +1,22 @@
+# Ignore unnecessary python files
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.pytest_cache
+logs/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+outputs/scraped_data/
+tests/
+.git/
