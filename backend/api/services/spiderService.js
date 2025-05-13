@@ -92,7 +92,7 @@ async function runSpider(spiderId) {
       runStatus.status = "failed";
       runStatus.error = err.message;
       runStatus.endTime = new Date().toISOString();
-      console.error(`Spider ${spiderId} run failed:`, err);
+      console.error("Spider %s run failed:", spiderId, err);
       throw new Error(`Spider run failed: ${err.message}`);
     });
 
