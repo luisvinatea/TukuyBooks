@@ -18,6 +18,8 @@ const progressBar = document.getElementById("progress-bar");
 const createEbookBtn = document.getElementById("create-ebook-btn");
 const formatRadios = document.querySelectorAll('input[name="format"]');
 const ebooksContainer = document.querySelector(".ebooks");
+const ebookSearch = document.getElementById("ebook-search");
+const searchClearBtn = document.getElementById("search-clear-btn");
 
 // Modal elements
 const modal = document.getElementById("modal");
@@ -147,6 +149,9 @@ async function init() {
   // Set up image loading handlers
   setupImageLoadHandlers();
 
+  // Set up search functionality
+  setupSearch();
+
   // Set up event listeners
   setupEventListeners();
 
@@ -226,9 +231,23 @@ function setupKeyboardNavigation() {
     document.getElementById("refresh-ebooks-btn"),
     themeToggle,
     activityToggle,
+    searchClearBtn,
   ].filter(Boolean); // Filter out any null elements
 
   interactiveElements.forEach((element) => {
+    if (!element) return;
+
+    // Make sure it's focusable
+    if (
+      !element.getAttribute("tabindex") &&
+      element.tagName !== "BUTTON" &&
+      element.tagName !== "A" &&
+      element.tagName !== "INPUT" &&
+      element.tagName !== "SELECT"
+    ) {
+      element.setAttribute("tabindex", "0");
+    }
+
     element.addEventListener("keydown", (e) => {
       // Activate on Enter or Space
       if (e.key === "Enter" || e.key === " ") {
@@ -237,6 +256,72 @@ function setupKeyboardNavigation() {
       }
     });
   });
+
+  // Add keyboard support for format radio options
+  const formatOptions = document.querySelectorAll(".format-option label");
+  formatOptions.forEach((label) => {
+    label.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const input = document.getElementById(label.getAttribute("for"));
+        if (input) {
+          input.checked = true;
+        }
+      }
+    });
+  });
+
+  // Add focus trap for modal
+  if (modal) {
+    modal.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        const focusableElements = modal.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          // If shift + tab and on first element, focus the last element
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          // If tab and on last element, focus the first element
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    });
+  }
+
+  // Make download and share buttons accessible via keyboard
+  const makeEbookActionsAccessible = () => {
+    document
+      .querySelectorAll(".download-link, .share-btn")
+      .forEach((element) => {
+        if (!element.getAttribute("tabindex")) {
+          element.setAttribute("tabindex", "0");
+        }
+
+        element.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            element.click();
+          }
+        });
+      });
+  };
+
+  // Apply after ebooks are loaded
+  const originalLoadAvailableEbooks = loadAvailableEbooks;
+  loadAvailableEbooks = async function () {
+    await originalLoadAvailableEbooks();
+    makeEbookActionsAccessible();
+  };
 }
 
 // Set up image loading handlers
@@ -374,6 +459,9 @@ async function loadAvailableEbooks() {
             <a href="#" class="download-link" data-filename="${ebook.filename}" title="Download this ebook">
               <i class="fas fa-download"></i>
             </a>
+            <button class="share-btn" data-title="${spiderName}" data-filename="${ebook.filename}" title="Share this ebook">
+              <i class="fas fa-share-alt"></i>
+            </button>
           </div>
         `;
 
@@ -381,9 +469,13 @@ async function loadAvailableEbooks() {
         ebooksContainer.appendChild(ebookCard);
       });
 
-      // Add event listeners to the download links
+      // Add event listeners to the buttons
       document.querySelectorAll(".download-link").forEach((link) => {
         link.addEventListener("click", handleDownload);
+      });
+
+      document.querySelectorAll(".share-btn").forEach((btn) => {
+        btn.addEventListener("click", handleShare);
       });
     } else {
       // No ebooks found
@@ -550,6 +642,18 @@ function displayActivities() {
       case "download":
         title = "Downloaded File";
         details = `Filename: ${activity.details.filename}`;
+        break;
+      case "search":
+        title = "Searched Ebooks";
+        details = `Search Term: ${activity.details.term}`;
+        break;
+      case "share":
+        title = "Shared Ebook";
+        details = `Title: ${activity.details.title}, Filename: ${activity.details.filename}`;
+        break;
+      case "share_platform":
+        title = "Shared on Platform";
+        details = `Platform: ${activity.details.platform}`;
         break;
       default:
         title = activity.type;
@@ -771,12 +875,55 @@ async function checkSpiderStatus() {
 // Show status in the UI
 function showStatus(state, message) {
   spiderStatus.classList.remove("hidden");
-  statusText.textContent = state.charAt(0).toUpperCase() + state.slice(1);
-  statusDetails.textContent = message;
 
-  // Add appropriate status color
+  let statusClassName = "";
+  let progressValue = 0;
+
+  switch (state) {
+    case "starting":
+      statusClassName = "starting";
+      statusText.textContent = "Starting";
+      progressValue = 5;
+      break;
+    case "crawling":
+      statusClassName = "crawling";
+      statusText.textContent = "Crawling";
+      progressValue = 30;
+      break;
+    case "processing":
+      statusClassName = "processing";
+      statusText.textContent = "Processing";
+      progressValue = 70;
+      break;
+    case "complete":
+      statusClassName = "complete";
+      statusText.textContent = "Complete";
+      progressValue = 100;
+      break;
+    case "error":
+      statusClassName = "error";
+      statusText.textContent = "Error";
+      progressValue = 0;
+      break;
+  }
+
+  // Remove all status classes
   spiderStatus.className = "status-box";
-  spiderStatus.classList.add("status-" + state);
+
+  // Add current status class
+  spiderStatus.classList.add(statusClassName);
+
+  // Update progress bar
+  progressBar.style.width = `${progressValue}%`;
+
+  // Update ARIA attributes for accessibility
+  const progressContainer = document.querySelector(".progress-container");
+  if (progressContainer) {
+    progressContainer.setAttribute("aria-valuenow", progressValue);
+  }
+
+  // Update details text
+  statusDetails.textContent = message;
 }
 
 // Update progress bar
@@ -897,6 +1044,274 @@ function handleDownload(event) {
   }
 }
 
+// Handle share button click
+async function handleShare(event) {
+  const btn = event.currentTarget;
+  const title = btn.dataset.title || "TukuyBooks Ebook";
+  const filename = btn.dataset.filename || "";
+
+  if (!filename) {
+    showNotification("Cannot share ebook: missing filename", "error");
+    return;
+  }
+
+  // Track activity
+  activityTracker.addActivity("share", {
+    title: title,
+    filename: filename,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Generate share URL (absolute URL)
+  const downloadUrl = new URL(
+    api.getDownloadUrl(filename),
+    window.location.origin
+  ).toString();
+
+  // Check if Web Share API is available
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${title} - TukuyBooks`,
+        text: `Check out this ebook: ${title}`,
+        url: downloadUrl,
+      });
+
+      showNotification("Shared successfully!", "success");
+    } catch (error) {
+      console.error("Error sharing:", error);
+
+      if (error.name !== "AbortError") {
+        // Only show error if user didn't cancel
+        showNotification(
+          "Could not share directly. Showing share options instead.",
+          "info"
+        );
+        showShareModal(title, downloadUrl);
+      }
+    }
+  } else {
+    // Fallback for browsers that don't support Web Share API
+    showShareModal(title, downloadUrl);
+  }
+}
+
+// Show modal with share options
+function showShareModal(title, url) {
+  modalTitle.textContent = "Share Ebook";
+
+  // Create share options
+  const shareContent = document.createElement("div");
+  shareContent.innerHTML = `
+    <p>Share "${title}" with others:</p>
+    
+    <div class="share-options">
+      <div class="share-option" data-platform="email">
+        <i class="fas fa-envelope"></i>
+        <span>Email</span>
+      </div>
+      
+      <div class="share-option" data-platform="twitter">
+        <i class="fab fa-twitter"></i>
+        <span>Twitter</span>
+      </div>
+      
+      <div class="share-option" data-platform="facebook">
+        <i class="fab fa-facebook"></i>
+        <span>Facebook</span>
+      </div>
+      
+      <div class="share-option" data-platform="linkedin">
+        <i class="fab fa-linkedin"></i>
+        <span>LinkedIn</span>
+      </div>
+    </div>
+    
+    <p>Or copy this link:</p>
+    <div class="share-link-container">
+      <input type="text" class="share-link-input" value="${url}" readonly>
+      <button class="btn secondary-btn copy-link-btn">
+        <i class="fas fa-copy"></i> Copy
+      </button>
+    </div>
+  `;
+
+  // Replace modal content
+  modalMessage.innerHTML = "";
+  modalMessage.appendChild(shareContent);
+
+  // Add event listeners to share options
+  shareContent.querySelectorAll(".share-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      const platform = option.dataset.platform;
+      shareToSocialMedia(platform, title, url);
+    });
+  });
+
+  // Add event listener to copy button
+  const copyBtn = shareContent.querySelector(".copy-link-btn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", () => {
+      const input = shareContent.querySelector(".share-link-input");
+      input.select();
+      document.execCommand("copy");
+      showNotification("Link copied to clipboard!", "success");
+    });
+  }
+
+  // Show the modal
+  showModal("Share Ebook", shareContent);
+}
+
+// Share to social media platforms
+function shareToSocialMedia(platform, title, url) {
+  let shareUrl = "";
+  const encodedUrl = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(`${title} - TukuyBooks Ebook`);
+  const encodedText = encodeURIComponent(`Check out this free ebook: ${title}`);
+
+  switch (platform) {
+    case "email":
+      shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
+      break;
+    case "twitter":
+      shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
+      break;
+    case "facebook":
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      break;
+    case "linkedin":
+      shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}`;
+      break;
+  }
+
+  if (shareUrl) {
+    window.open(shareUrl, "_blank");
+
+    // Track sharing activity
+    activityTracker.addActivity("share_platform", {
+      platform: platform,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Close the modal after sharing
+    setTimeout(() => {
+      closeModal();
+    }, 500);
+  }
+}
+
+// Handle search functionality
+function setupSearch() {
+  if (!ebookSearch || !searchClearBtn) return;
+
+  // Original list of ebooks for filtering
+  let allEbooks = [];
+
+  // Function to save all ebook elements when they're loaded
+  function saveAllEbooks() {
+    const ebookCards = ebooksContainer.querySelectorAll(".ebook-card");
+    allEbooks = Array.from(ebookCards);
+  }
+
+  // Function to filter ebooks based on search term
+  function filterEbooks(searchTerm) {
+    if (searchTerm === "") {
+      // If search is empty, show all ebooks
+      allEbooks.forEach((card) => {
+        card.style.display = "";
+      });
+
+      // Hide clear button when search is empty
+      searchClearBtn.classList.remove("visible");
+      return;
+    }
+
+    // Show clear button when search has content
+    searchClearBtn.classList.add("visible");
+
+    // Convert search term to lowercase for case-insensitive comparison
+    searchTerm = searchTerm.toLowerCase();
+
+    // Filter the ebooks
+    let visibleCount = 0;
+
+    allEbooks.forEach((card) => {
+      const title =
+        card.querySelector(".ebook-title")?.textContent?.toLowerCase() || "";
+      const format =
+        card.querySelector(".format-badge")?.textContent?.toLowerCase() || "";
+      const details =
+        card.querySelector(".ebook-details")?.textContent?.toLowerCase() || "";
+
+      // Check if the card contains the search term
+      if (
+        title.includes(searchTerm) ||
+        format.includes(searchTerm) ||
+        details.includes(searchTerm)
+      ) {
+        card.style.display = "";
+        visibleCount++;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    // Show a message if no results found
+    if (
+      visibleCount === 0 &&
+      ebooksContainer.querySelector(".no-results") === null
+    ) {
+      const noResults = document.createElement("div");
+      noResults.className = "no-results";
+      noResults.innerHTML = `
+        <i class="fas fa-search"></i>
+        <p>No ebooks found matching "${searchTerm}"</p>
+      `;
+      ebooksContainer.appendChild(noResults);
+    } else {
+      // Remove no results message if there are matches
+      const noResults = ebooksContainer.querySelector(".no-results");
+      if (noResults && visibleCount > 0) {
+        noResults.remove();
+      }
+    }
+  }
+
+  // Search input event handler
+  ebookSearch.addEventListener("input", (e) => {
+    const searchTerm = e.target.value.trim();
+    filterEbooks(searchTerm);
+
+    // Record activity if search term is meaningful
+    if (searchTerm.length > 2) {
+      activityTracker.addActivity("search", {
+        term: searchTerm,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Clear search button event handler
+  searchClearBtn.addEventListener("click", () => {
+    ebookSearch.value = "";
+    filterEbooks("");
+    ebookSearch.focus();
+  });
+
+  // Override the loadAvailableEbooks function to save all ebooks after loading
+  const originalLoadAvailableEbooks = loadAvailableEbooks;
+  loadAvailableEbooks = async function () {
+    await originalLoadAvailableEbooks();
+    saveAllEbooks();
+
+    // Apply any existing search filter
+    if (ebookSearch.value.trim() !== "") {
+      filterEbooks(ebookSearch.value.trim());
+    }
+  };
+}
+
 // Show modal
 function showModal(title, message, onOk) {
   modalTitle.textContent = title;
@@ -920,25 +1335,31 @@ function closeModal() {
   modal.style.display = "none";
 }
 
-// Show notification
+// Show notification to user
 function showNotification(message, type = "info") {
-  // Clear any existing notification
+  // Hide any existing notification to prevent overlap
   if (notificationTimeout) {
     clearTimeout(notificationTimeout);
-    notificationTimeout = null;
   }
 
-  // Check if notification container exists, create if not
-  let notificationContainer = document.getElementById("notification-container");
-  if (!notificationContainer) {
-    notificationContainer = document.createElement("div");
-    notificationContainer.id = "notification-container";
-    document.body.appendChild(notificationContainer);
+  // Create notification container if not exist
+  let notificationsContainer = document.querySelector(".notifications");
+  if (!notificationsContainer) {
+    notificationsContainer = document.createElement("div");
+    notificationsContainer.className = "notifications";
+    document.body.appendChild(notificationsContainer);
   }
 
   // Create notification element
   const notification = document.createElement("div");
-  notification.className = `notification notification-${type}`;
+  notification.className = `notification ${type}`;
+
+  // Add ARIA attributes for screen readers
+  notification.setAttribute("role", "alert");
+  notification.setAttribute(
+    "aria-live",
+    type === "error" ? "assertive" : "polite"
+  );
 
   // Add icon based on type
   let icon;
@@ -956,33 +1377,39 @@ function showNotification(message, type = "info") {
       icon = "info-circle";
   }
 
+  // Set notification content
   notification.innerHTML = `
-    <i class="fas fa-${icon}"></i>
-    <span>${message}</span>
-    <button class="notification-close"><i class="fas fa-times"></i></button>
+    <div class="notification-icon">
+      <i class="fas fa-${icon}" aria-hidden="true"></i>
+    </div>
+    <div class="notification-content">
+      <p>${message}</p>
+    </div>
+    <button class="notification-close" aria-label="Close notification">
+      <i class="fas fa-times" aria-hidden="true"></i>
+    </button>
   `;
 
-  // Add close event
-  notification
-    .querySelector(".notification-close")
-    .addEventListener("click", () => {
-      notification.classList.add("notification-closing");
-      setTimeout(() => {
-        notification.remove();
-      }, 300);
-    });
+  // Add close functionality
+  const closeBtn = notification.querySelector(".notification-close");
+  closeBtn.addEventListener("click", () => {
+    notification.classList.add("fade-out");
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  });
 
-  // Add to container
-  notificationContainer.appendChild(notification);
+  // Add to DOM
+  notificationsContainer.appendChild(notification);
 
-  // Show with animation
+  // Show animation
   setTimeout(() => {
-    notification.classList.add("notification-visible");
+    notification.classList.add("show");
   }, 10);
 
-  // Auto-remove after 5 seconds
+  // Auto-dismiss after a delay
   notificationTimeout = setTimeout(() => {
-    notification.classList.add("notification-closing");
+    notification.classList.add("fade-out");
     setTimeout(() => {
       notification.remove();
     }, 300);

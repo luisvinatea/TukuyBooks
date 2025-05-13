@@ -57,8 +57,12 @@
               Turn open-source documentation into portable ebooks for offline
               learning anywhere
             </p>
-            <a href="#generate" class="btn primary-btn">Start Converting</a>
-            <a href="#about" class="btn secondary-btn">Learn More</a>
+            <a href="#generate" class="btn primary-btn" role="button"
+              >Start Converting</a
+            >
+            <a href="#about" class="btn secondary-btn" role="button"
+              >Learn More</a
+            >
           </div>
         </section>
 
@@ -119,7 +123,10 @@
                   <label for="spider-select"
                     >Choose Documentation Source:</label
                   >
-                  <select id="spider-select">
+                  <select
+                    id="spider-select"
+                    aria-label="Select documentation source"
+                  >
                     <option value="">Please select a source</option>
                     <!-- This will be populated by JavaScript -->
                   </select>
@@ -129,12 +136,29 @@
               <div class="step">
                 <div class="step-number">2</div>
                 <h3>Start the Process</h3>
-                <button id="run-spider-btn" class="btn primary-btn" disabled>
-                  <i class="fas fa-spider"></i> Start Scraping
+                <button
+                  id="run-spider-btn"
+                  class="btn primary-btn"
+                  disabled
+                  aria-label="Start scraping process"
+                >
+                  <i class="fas fa-spider" aria-hidden="true"></i> Start
+                  Scraping
                 </button>
-                <div id="spider-status" class="status-box hidden">
+                <div
+                  id="spider-status"
+                  class="status-box hidden"
+                  role="status"
+                  aria-live="polite"
+                >
                   <h4>Status: <span id="status-text">Waiting</span></h4>
-                  <div class="progress-container">
+                  <div
+                    class="progress-container"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="0"
+                  >
                     <div id="progress-bar" class="progress-bar"></div>
                   </div>
                   <p id="status-details"></p>
@@ -144,7 +168,11 @@
               <div class="step">
                 <div class="step-number">3</div>
                 <h3>Convert to Ebook</h3>
-                <div class="format-options">
+                <div
+                  class="format-options"
+                  role="radiogroup"
+                  aria-label="Select ebook format"
+                >
                   <div class="format-option">
                     <input
                       type="radio"
@@ -154,7 +182,7 @@
                       checked
                     />
                     <label for="format-epub">
-                      <i class="fas fa-book"></i>
+                      <i class="fas fa-book" aria-hidden="true"></i>
                       <span>EPUB</span>
                     </label>
                   </div>
@@ -166,13 +194,18 @@
                       value="pdf"
                     />
                     <label for="format-pdf">
-                      <i class="fas fa-file-pdf"></i>
+                      <i class="fas fa-file-pdf" aria-hidden="true"></i>
                       <span>PDF</span>
                     </label>
                   </div>
                 </div>
-                <button id="create-ebook-btn" class="btn primary-btn" disabled>
-                  <i class="fas fa-book"></i> Generate Ebook
+                <button
+                  id="create-ebook-btn"
+                  class="btn primary-btn"
+                  disabled
+                  aria-label="Generate selected format ebook"
+                >
+                  <i class="fas fa-book" aria-hidden="true"></i> Generate Ebook
                 </button>
               </div>
             </div>
@@ -185,6 +218,21 @@
             <div class="section-header">
               <h2>Download Ebooks</h2>
               <div class="section-actions">
+                <div class="search-container">
+                  <input
+                    type="text"
+                    id="ebook-search"
+                    placeholder="Search ebooks..."
+                    aria-label="Search ebooks"
+                  />
+                  <button
+                    id="search-clear-btn"
+                    class="search-clear-btn"
+                    aria-label="Clear search"
+                  >
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
                 <button
                   id="refresh-ebooks-btn"
                   class="btn secondary-btn"

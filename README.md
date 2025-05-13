@@ -41,10 +41,9 @@ Each website we target gets its own dedicated spider pipeline within this reposi
 
 Below are the active spider pipelines transforming specific websites into free knowledge assets:
 
-- **[PythonDocs](PythonDocs/)**: Scrapes Python 3 documentation from `docs.python.org/3/`.
+- **PythonDocs**: Scrapes Python 3 documentation from `docs.python.org/3/`.
   - Status: Active
   - Outputs: `Python3Docs.epub`, `Python3Docs.pdf`
-  - See [PythonDocs README](PythonDocs/README.md) for details.
 
 *More pipelines coming soon! Suggest new websites via [Issues](https://github.com/luisvinatea/TukuyBooks/issues).*
 
@@ -79,17 +78,55 @@ TukuyBooks/
 
 ## Frontend Architecture
 
-The TukuyBooks web interface is built with vanilla JavaScript and structured for simplicity:
+The TukuyBooks frontend is built with modern vanilla JavaScript and follows best practices for maintainable web applications:
 
-- **API Client**: The `api.js` file provides a clean interface to communicate with the backend.
-- **UI Components**: Modular components for different sections (ebook cards, notifications, etc.).
-- **Responsive Design**: Fully responsive layout that works on mobile, tablet, and desktop.
-- **Event-Driven**: Uses event listeners to handle user interactions and state changes.
+### Core Components
 
-Key features of the frontend:
+- **API Client (`api.js`)**: Handles all communication with the backend, including automatic retries and loading indicators
+- **User Interface (`main.js`)**: Manages the UI state, event handling, and application logic
+- **Theme System**: Supports both light and dark modes with persistent user preferences
+- **Notification System**: Provides user feedback with different status types and auto-dismissal
+- **Activity Tracking**: Records user actions and displays them in an activity panel
+- **Search System**: Allows filtering of available ebooks
+- **Share Functionality**: Enables users to share ebooks across various platforms
 
-- Real-time progress tracking for spider processes
-- Notifications system for user feedback
-- Automatic detection of available ebooks
-- Client-side validation to prevent errors
-- Mobile-first responsive design
+### Technical Features
+
+#### Progressive Enhancement
+
+The frontend implements progressive enhancement principles:
+
+- Core functionality works with basic JavaScript
+- Enhanced features gracefully degrade in older browsers
+- Browser compatibility checks provide feedback to users
+
+#### Error Handling
+
+Robust error handling strategy:
+
+- Automatic retry for network failures with exponential backoff
+- Detailed error messages with recovery suggestions
+- Fallback content when API requests fail
+- Offline capabilities for viewing previously loaded content
+
+#### Performance Optimization
+
+- Lazy loading images and non-critical resources
+- Minimal DOM manipulation for better performance
+- Optimized CSS with minimal dependencies
+- Efficient event delegation patterns
+
+#### Mobile First Design
+
+- Responsive design works on all screen sizes
+- Touch-friendly controls for mobile devices
+- Adaptive layout that reflows for different viewports
+- Optimized for both portrait and landscape orientations
+
+#### Accessibility
+
+- ARIA attributes for screen reader compatibility
+- Full keyboard navigation support
+- Sufficient color contrast in both light and dark modes
+- Focus management for modals and interactive elements
+- Status announcements for loading states and events
