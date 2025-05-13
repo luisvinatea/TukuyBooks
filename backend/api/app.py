@@ -414,7 +414,7 @@ def download_file(filename):
     except Exception as e:
         logger.error(f"Failed to download file: {e}")
         return jsonify(
-            {"success": False, "message": f"Failed to download file: {str(e)}"}
+            {"success": False, "message": "An internal error occurred while processing the request."}
         ), 500
 
 
