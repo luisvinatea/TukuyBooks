@@ -27,6 +27,18 @@ if [ -n "$(git status --porcelain)" ]; then
     fi
 fi
 
+# Verify Node.js dependencies are installed
+if [ ! -d "node_modules" ]; then
+    echo "Installing Node.js dependencies..."
+    npm install
+fi
+
+# Verify Python dependencies for spider execution
+if [ ! -f "requirements.txt" ]; then
+    echo "Error: requirements.txt not found!"
+    exit 1
+fi
+
 # Deploy to Vercel
 echo "Deploying to Vercel..."
 vercel --prod

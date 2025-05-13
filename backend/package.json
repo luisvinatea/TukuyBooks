@@ -1,0 +1,28 @@
+{
+  "name": "tukuybooks-api",
+  "version": "1.0.0",
+  "description": "Node.js backend API for TukuyBooks",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "deploy": "cd .. && ./scripts/deploy_to_vercel.sh",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "npm install && pip install -r requirements.txt"
+  },
+  "engines": {
+    "node": ">=16.x"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
+    "python-shell": "^5.0.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
