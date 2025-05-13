@@ -11,6 +11,31 @@ class TukuyBooksAPI {
    */
   constructor(baseUrl = "/api") {
     this.baseUrl = baseUrl;
+    this.activeRequests = 0;
+    this.loadingIndicator = document.getElementById("global-loading");
+  }
+
+  /**
+   * Show the loading indicator
+   */
+  showLoading() {
+    this.activeRequests++;
+    if (this.loadingIndicator) {
+      this.loadingIndicator.classList.add("active");
+    }
+  }
+
+  /**
+   * Hide the loading indicator if all requests are complete
+   */
+  hideLoading() {
+    this.activeRequests--;
+    if (this.activeRequests <= 0) {
+      this.activeRequests = 0;
+      if (this.loadingIndicator) {
+        this.loadingIndicator.classList.remove("active");
+      }
+    }
   }
 
   /**
@@ -19,6 +44,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Array>} - List of available spiders
    */
   async getSpiders() {
+    this.showLoading();
     try {
       const response = await fetch(`${this.baseUrl}/spiders`);
       const data = await response.json();
@@ -31,6 +57,8 @@ class TukuyBooksAPI {
     } catch (error) {
       console.error("Error getting spiders:", error);
       throw error;
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -41,6 +69,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status of the spider run
    */
   async runSpider(spiderId) {
+    this.showLoading();
     try {
       const response = await fetch(`${this.baseUrl}/spiders/${spiderId}/run`, {
         method: "POST",
@@ -59,6 +88,8 @@ class TukuyBooksAPI {
     } catch (error) {
       console.error(`Error running spider ${spiderId}:`, error);
       throw error;
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -69,6 +100,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status information
    */
   async getSpiderStatus(spiderId) {
+    this.showLoading();
     try {
       const response = await fetch(
         `${this.baseUrl}/spiders/${spiderId}/status`
@@ -83,6 +115,8 @@ class TukuyBooksAPI {
     } catch (error) {
       console.error(`Error getting status for spider ${spiderId}:`, error);
       throw error;
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -94,6 +128,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status of the ebook creation
    */
   async createEbook(spiderId, format = "epub") {
+    this.showLoading();
     try {
       const response = await fetch(
         `${this.baseUrl}/spiders/${spiderId}/ebook`,
@@ -116,6 +151,8 @@ class TukuyBooksAPI {
     } catch (error) {
       console.error(`Error creating ${format} for spider ${spiderId}:`, error);
       throw error;
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -125,6 +162,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Array>} - List of available ebooks
    */
   async getAvailableEbooks() {
+    this.showLoading();
     try {
       const response = await fetch(`${this.baseUrl}/ebooks`);
       const data = await response.json();
@@ -137,6 +175,8 @@ class TukuyBooksAPI {
     } catch (error) {
       console.error("Error getting available ebooks:", error);
       throw error;
+    } finally {
+      this.hideLoading();
     }
   }
 

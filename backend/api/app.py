@@ -11,19 +11,22 @@ import logging
 import uuid
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+from scripts.make_ebook import EbookMaker, PythonDocsEbookMaker
+from scripts.epub_checker import EpubChecker
 
 # Import our custom modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from backend.scripts.make_ebook import EbookMaker, PythonDocsEbookMaker
-from backend.scripts.epub_checker import EpubChecker
-
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+sys.path.append(os.path.dirname(parent_dir))
 
 # Set up logging
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(os.path.join(parent_dir, "logs"), exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join("backend", "logs", "api.log")),
+        logging.FileHandler(os.path.join(parent_dir, "logs", "api.log")),
         logging.StreamHandler(),
     ],
 )
@@ -34,7 +37,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Load spider configuration
-SPIDERS_CONFIG_PATH = os.path.join("backend", "spiders", "config.json")
+SPIDERS_CONFIG_PATH = os.path.join(parent_dir, "spiders", "config.json")
 try:
     with open(SPIDERS_CONFIG_PATH, "r") as f:
         SPIDERS_CONFIG = json.load(f)
@@ -88,7 +91,7 @@ def run_spider(spider_id):
     job_id = str(uuid.uuid4())
 
     # Prepare output directory
-    output_dir = os.path.join("backend", "outputs")
+    output_dir = os.path.join(parent_dir, "outputs")
     os.makedirs(output_dir, exist_ok=True)
 
     # Run the spider using Scrapy
@@ -139,7 +142,7 @@ def get_spider_status(spider_id):
         }
 
     # Check if output file exists
-    output_file = os.path.join("backend", "outputs", f"{spider_id}.jl")
+    output_file = os.path.join(parent_dir, "outputs", f"{spider_id}.jl")
     if not os.path.exists(output_file):
         return {
             "success": True,
@@ -149,7 +152,7 @@ def get_spider_status(spider_id):
         }
 
     # Check if the spider is still running
-    job_state_dir = os.path.join("backend", "outputs", "job_state")
+    job_state_dir = os.path.join(parent_dir, "outputs", "job_state")
     is_running = os.path.exists(job_state_dir)
 
     # Get some stats about the output file
@@ -193,7 +196,7 @@ def create_ebook(spider_id, format="epub"):
         }
 
     # Check if output file exists
-    output_file = os.path.join("backend", "outputs", f"{spider_id}.jl")
+    output_file = os.path.join(parent_dir, "outputs", f"{spider_id}.jl")
     if not os.path.exists(output_file):
         return {
             "success": False,
@@ -227,7 +230,7 @@ def create_ebook(spider_id, format="epub"):
         pdf_path = None
         if format.lower() == "pdf":
             pdf_filename = f"{spider.get('output_prefix', spider_id)}.pdf"
-            pdf_path = os.path.join("backend", "outputs", pdf_filename)
+            pdf_path = os.path.join(parent_dir, "outputs", pdf_filename)
 
             # Use Calibre for conversion
             cmd = [
@@ -271,7 +274,7 @@ def get_available_ebooks():
         list: List of ebook information dictionaries.
     """
     ebooks = []
-    outputs_dir = os.path.join("backend", "outputs")
+    outputs_dir = os.path.join(parent_dir, "outputs")
 
     # Create outputs dir if it doesn't exist
     os.makedirs(outputs_dir, exist_ok=True)
@@ -386,7 +389,7 @@ def api_get_ebooks():
 def download_file(filename):
     """Download a file."""
     try:
-        file_path = os.path.join("backend", "outputs", filename)
+        file_path = os.path.join(parent_dir, "outputs", filename)
         if not os.path.exists(file_path):
             return jsonify(
                 {"success": False, "message": f"File '{filename}' not found"}

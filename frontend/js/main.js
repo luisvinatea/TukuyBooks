@@ -26,14 +26,24 @@ const modalMessage = document.getElementById("modal-message");
 const modalOkBtn = document.getElementById("modal-ok-btn");
 const closeBtn = document.querySelector(".close-btn");
 
+// Add theme toggle button
+const themeToggle = document.getElementById("theme-toggle");
+
 // State variables
 let selectedSpider = null;
 let statusCheckInterval = null;
 let isProcessing = false;
 let notificationTimeout = null;
+let currentTheme = localStorage.getItem("theme") || "light";
 
 // Initialize the application
 async function init() {
+  // Initialize theme
+  initTheme();
+
+  // Set up keyboard navigation
+  setupKeyboardNavigation();
+
   // Set up image loading handlers
   setupImageLoadHandlers();
 
@@ -53,6 +63,57 @@ async function init() {
 
   // Set up event listeners
   setupEventListeners();
+}
+
+// Initialize theme based on user preference
+function initTheme() {
+  // Check if user has a saved preference
+  if (currentTheme === "dark") {
+    document.body.classList.add("dark-theme");
+  } else {
+    document.body.classList.remove("dark-theme");
+  }
+}
+
+// Toggle between light and dark theme
+function toggleTheme() {
+  if (document.body.classList.contains("dark-theme")) {
+    document.body.classList.remove("dark-theme");
+    currentTheme = "light";
+  } else {
+    document.body.classList.add("dark-theme");
+    currentTheme = "dark";
+  }
+
+  // Save preference to local storage
+  localStorage.setItem("theme", currentTheme);
+
+  // Show notification
+  showNotification(`Switched to ${currentTheme} theme`, "info");
+}
+
+// Set up keyboard navigation
+function setupKeyboardNavigation() {
+  document.addEventListener("keydown", (e) => {
+    // ESC to close modals
+    if (e.key === "Escape") {
+      if (modal.style.display === "block") {
+        closeModal();
+      }
+    }
+
+    // Ctrl+D or Cmd+D to toggle dark mode
+    if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+      e.preventDefault();
+      toggleTheme();
+    }
+
+    // Alt+R to refresh ebook list
+    if (e.altKey && e.key === "r") {
+      e.preventDefault();
+      handleRefreshEbooks();
+    }
+  });
 }
 
 // Set up image loading handlers
@@ -300,6 +361,36 @@ function setupEventListeners() {
   const refreshBtn = document.getElementById("refresh-ebooks-btn");
   if (refreshBtn) {
     refreshBtn.addEventListener("click", handleRefreshEbooks);
+  }
+
+  // Theme toggle button
+  if (themeToggle) {
+    themeToggle.addEventListener("click", toggleTheme);
+  }
+
+  // Listen for system theme changes
+  if (window.matchMedia) {
+    const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    colorSchemeQuery.addEventListener("change", (e) => {
+      // Only change if user has no preference set
+      if (!localStorage.getItem("theme")) {
+        if (e.matches) {
+          document.body.classList.add("dark-theme");
+          currentTheme = "dark";
+        } else {
+          document.body.classList.remove("dark-theme");
+          currentTheme = "light";
+        }
+      }
+    });
+
+    // Initialize based on system preference if user has no preference
+    if (!localStorage.getItem("theme")) {
+      if (colorSchemeQuery.matches) {
+        document.body.classList.add("dark-theme");
+        currentTheme = "dark";
+      }
+    }
   }
 }
 

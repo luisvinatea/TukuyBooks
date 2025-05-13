@@ -5,7 +5,7 @@
 
 /* Variables */
 :root {
-  /* Colors */
+  /* Colors - Light Theme (Default) */
   --primary-color: #3498db;
   --primary-dark: #2980b9;
   --secondary-color: #2ecc71;
@@ -23,6 +23,25 @@
   --success: #2ecc71;
   --warning: #f39c12;
   --info: #3498db;
+  --card-bg: #ffffff;
+  --card-shadow: rgba(0, 0, 0, 0.1);
+  --border-color: #eaeaea;
+
+  /* Dark Theme Colors - Will be applied when .dark-theme class is added to html or body */
+  --dark-primary-color: #61b0ff;
+  --dark-primary-dark: #4a98da;
+  --dark-secondary-color: #50d88a;
+  --dark-secondary-dark: #3db370;
+  --dark-text-color: #e1e1e1;
+  --dark-text-light: #b0b0b0;
+  --dark-bg-light: #1a1a1a;
+  --dark-bg-dark: #141414;
+  --dark-gray-light: #2c2c2c;
+  --dark-gray: #3c3c3c;
+  --dark-gray-dark: #6c6c6c;
+  --dark-card-bg: #262626;
+  --dark-card-shadow: rgba(0, 0, 0, 0.4);
+  --dark-border-color: #444444;
 
   /* Typography */
   --font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -58,6 +77,71 @@
   /* Layout */
   --container-max-width: 1200px;
   --header-height: 70px;
+}
+
+/* Dark Theme */
+.dark-theme {
+  --primary-color: var(--dark-primary-color);
+  --primary-dark: var(--dark-primary-dark);
+  --secondary-color: var(--dark-secondary-color);
+  --secondary-dark: var(--dark-secondary-dark);
+  --text-color: var(--dark-text-color);
+  --text-light: var(--dark-text-light);
+  --bg-light: var(--dark-bg-light);
+  --bg-dark: var(--dark-bg-dark);
+  --gray-light: var(--dark-gray-light);
+  --gray: var(--dark-gray);
+  --gray-dark: var(--dark-gray-dark);
+  --card-bg: var(--dark-card-bg);
+  --card-shadow: var(--dark-card-shadow);
+  --border-color: var(--dark-border-color);
+
+  color-scheme: dark;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+}
+
+.theme-toggle:hover {
+  background-color: var(--primary-dark);
+}
+
+.theme-toggle i {
+  transition: transform var(--transition-normal);
+}
+
+.dark-theme .theme-toggle i.fa-moon {
+  display: none;
+}
+
+.dark-theme .theme-toggle i.fa-sun {
+  display: block;
+}
+
+.theme-toggle i.fa-moon {
+  display: block;
+}
+
+.theme-toggle i.fa-sun {
+  display: none;
 }
 
 /* Base Styles */
@@ -473,9 +557,9 @@ img:not(.loaded)::after {
 }
 
 .ebook-card {
-  background-color: var(--white);
+  background-color: var(--card-bg);
   border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 10px var(--card-shadow);
   transition: transform var(--transition-normal),
     box-shadow var(--transition-normal);
   overflow: hidden;
@@ -483,11 +567,12 @@ img:not(.loaded)::after {
   flex-direction: column;
   height: 100%;
   position: relative;
+  border: 1px solid var(--border-color);
 }
 
 .ebook-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px var(--card-shadow);
 }
 
 .ebook-icon {
@@ -500,6 +585,10 @@ img:not(.loaded)::after {
   align-items: center;
   background-color: var(--gray-light);
   height: 120px;
+}
+
+.dark-theme .ebook-icon {
+  color: var(--primary-color);
 }
 
 .ebook-content {
@@ -528,52 +617,12 @@ img:not(.loaded)::after {
   margin-bottom: var(--spacing-md);
 }
 
-.ebook-formats {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-top: auto;
-}
-
-.download-link {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
+.dark-theme .download-link {
   background-color: var(--primary-color);
-  color: var(--white);
-  text-decoration: none;
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  transition: background-color var(--transition-fast);
 }
 
-.download-link:hover {
+.dark-theme .download-link:hover {
   background-color: var(--primary-dark);
-}
-
-.download-link i {
-  margin-right: var(--spacing-xs);
-}
-
-.ebook-placeholder {
-  background-color: var(--gray-light);
-  border: 2px dashed var(--gray);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-lg);
-  text-align: center;
-  border-radius: var(--border-radius-md);
-  color: var(--gray-dark);
-  height: 100%;
-}
-
-.ebook-placeholder .ebook-icon {
-  background-color: transparent;
-  height: auto;
-  padding: 0;
-  margin-bottom: var(--spacing-md);
 }
 
 /* Refresh Button */
@@ -801,6 +850,47 @@ img:not(.loaded)::after {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+/* Loading Indicator */
+.global-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: var(--gray-light);
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.global-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25%;
+  height: 100%;
+  background-color: var(--primary-color);
+  animation: loading-animation 1.5s infinite ease-in-out;
+}
+
+.global-loading.active {
+  opacity: 1;
+}
+
+@keyframes loading-animation {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(400%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }
 
