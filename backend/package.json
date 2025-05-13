@@ -21,7 +21,8 @@
     "node-fetch": "^3.3.2",
     "python-shell": "^5.0.0",
     "uuid": "^9.0.1",
-    "express-rate-limit": "^7.5.0"
+    "express-rate-limit": "^7.5.0",
+    "sanitize-filename": "^1.6.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

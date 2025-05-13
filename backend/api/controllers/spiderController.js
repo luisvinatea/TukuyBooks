@@ -4,6 +4,7 @@
 
 const path = require("path");
 const fs = require("fs");
+const sanitizeFilename = require("sanitize-filename");
 const spiderService = require("../services/spiderService");
 const { createResponse, asyncHandler } = require("../utils");
 const { paths } = require("../config");
@@ -114,8 +115,16 @@ const getEbooks = asyncHandler(async (req, res) => {
  * Download a specific ebook
  */
 const downloadFile = asyncHandler(async (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(paths.outputs, filename);
+  const sanitizeFilename = require("sanitize-filename");
+  const filename = sanitizeFilename(req.params.filename);
+  const filePath = path.resolve(paths.outputs, filename);
+
+  // Ensure the filePath is within the outputs directory
+  if (!filePath.startsWith(path.resolve(paths.outputs))) {
+    return res
+      .status(403)
+      .json(createResponse(false, "Access to the requested file is forbidden"));
+  }
 
   // Check if file exists
   if (!fs.existsSync(filePath)) {
