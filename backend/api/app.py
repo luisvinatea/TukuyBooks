@@ -397,7 +397,14 @@ def api_get_ebooks():
 def download_file(filename):
     """Download a file."""
     try:
-        file_path = os.path.join(parent_dir, "outputs", filename)
+        file_path = os.path.normpath(os.path.join(parent_dir, "outputs", filename))
+        # Ensure the file path is within the allowed directory
+        allowed_dir = os.path.join(parent_dir, "outputs")
+        if not file_path.startswith(allowed_dir):
+            return jsonify(
+                {"success": False, "message": "Access to the requested file is not allowed"}
+            ), 403
+
         if not os.path.exists(file_path):
             return jsonify(
                 {"success": False, "message": f"File '{filename}' not found"}
