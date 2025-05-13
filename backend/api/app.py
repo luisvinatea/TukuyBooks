@@ -9,6 +9,7 @@ import json
 import subprocess
 import logging
 import uuid
+import re
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from scripts.make_ebook import EbookMaker, PythonDocsEbookMaker
@@ -188,6 +189,13 @@ def create_ebook(spider_id, format="epub"):
     Returns:
         dict: Status of the ebook creation.
     """
+    # Validate spider_id to ensure it is alphanumeric with underscores
+    if not re.match(r'^[a-zA-Z0-9_]+$', spider_id):
+        logger.error(f"Invalid spider_id: {spider_id}")
+        return {
+            "success": False,
+            "message": "Invalid spider_id. Only alphanumeric characters and underscores are allowed.",
+        }
     spider = get_spider_by_id(spider_id)
     if not spider:
         return {
