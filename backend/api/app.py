@@ -12,26 +12,47 @@ import uuid
 import re
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
-from scripts.make_ebook import EbookMaker, PythonDocsEbookMaker
-from scripts.epub_checker import EpubChecker
 
-# Import our custom modules
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Configure paths for Vercel deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # backend directory
+project_dir = os.path.dirname(parent_dir)  # project root
+
+# Add paths for imports
+sys.path.append(current_dir)
 sys.path.append(parent_dir)
-sys.path.append(os.path.dirname(parent_dir))
+sys.path.append(project_dir)
 
-# Set up logging
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.makedirs(os.path.join(parent_dir, "logs"), exist_ok=True)
+# Set up logging - in Vercel we can't write to files, so adjust for environment
+is_vercel = os.environ.get("VERCEL_DEPLOYMENT") == "true"
+log_handlers = [logging.StreamHandler()]
+
+if not is_vercel:
+    # Only create log directory and file handler if not on Vercel
+    os.makedirs(os.path.join(parent_dir, "logs"), exist_ok=True)
+    log_handlers.append(
+        logging.FileHandler(os.path.join(parent_dir, "logs", "api.log"))
+    )
+
+# Now import our custom modules after path setup
+try:
+    from scripts.make_ebook import EbookMaker, PythonDocsEbookMaker
+    from scripts.epub_checker import EpubChecker
+except ImportError as e:
+    logging.error(f"Failed to import custom modules: {e}")
+    # Continue anyway as we'll handle the error later
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(parent_dir, "logs", "api.log")),
-        logging.StreamHandler(),
-    ],
+    handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)
+
+# Log startup information
+logger.info(
+    f"Starting TukuyBooks API in {'Vercel' if is_vercel else 'development'} environment"
+)
+logger.info(f"Python paths: {sys.path}")
 
 # Create Flask app
 app = Flask(__name__)
@@ -190,7 +211,7 @@ def create_ebook(spider_id, format="epub"):
         dict: Status of the ebook creation.
     """
     # Validate spider_id to ensure it is alphanumeric with underscores
-    if not re.match(r'^[a-zA-Z0-9_]+$', spider_id):
+    if not re.match(r"^[a-zA-Z0-9_]+$", spider_id):
         logger.error(f"Invalid spider_id: {spider_id}")
         return {
             "success": False,
@@ -397,12 +418,17 @@ def api_get_ebooks():
 def download_file(filename):
     """Download a file."""
     try:
-        file_path = os.path.normpath(os.path.join(parent_dir, "outputs", filename))
+        file_path = os.path.normpath(
+            os.path.join(parent_dir, "outputs", filename)
+        )
         # Ensure the file path is within the allowed directory
         allowed_dir = os.path.join(parent_dir, "outputs")
         if not file_path.startswith(allowed_dir):
             return jsonify(
-                {"success": False, "message": "Access to the requested file is not allowed"}
+                {
+                    "success": False,
+                    "message": "Access to the requested file is not allowed",
+                }
             ), 403
 
         if not os.path.exists(file_path):
@@ -414,7 +440,10 @@ def download_file(filename):
     except Exception as e:
         logger.error(f"Failed to download file: {e}")
         return jsonify(
-            {"success": False, "message": "An internal error occurred while processing the request."}
+            {
+                "success": False,
+                "message": "An internal error occurred while processing the request.",
+            }
         ), 500
 
 
