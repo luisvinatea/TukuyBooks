@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const APIError = require("./APIError");
 
 /**
  * Ensures a directory exists, creating it if necessary
@@ -93,4 +94,5 @@ module.exports = {
   createResponse,
   asyncHandler,
   fileExists,
+  APIError,
 };

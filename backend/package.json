@@ -8,7 +8,11 @@
     "dev": "nodemon api/index.js",
     "deploy": "cd .. && ./scripts/deploy_to_vercel.sh",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "setup": "npm install && pip install -r requirements.txt"
+    "setup": "npm install && pip install -r requirements.txt",
+    "validate-api": "node scripts/validate-api.js",
+    "prestart": "npm run validate-api",
+    "lint": "eslint api/**/*.js",
+    "docs": "node -e \"console.log(JSON.stringify(require('./api/config/api-doc'), null, 2))\""
   },
   "engines": {
     "node": ">=16.x"

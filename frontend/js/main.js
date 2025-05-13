@@ -96,6 +96,7 @@ const activityTracker = new ActivityTracker();
 
 // State variables
 let selectedSpider = null;
+let currentRunId = null;
 let statusCheckInterval = null;
 let isProcessing = false;
 let notificationTimeout = null;
@@ -793,11 +794,15 @@ async function handleRunSpider() {
     // Track activity
     activityTracker.addActivity("spider_run", {
       spiderId: selectedSpider,
+      runId: currentRunId,
       timestamp: new Date().toISOString(),
     });
 
     const result = await api.runSpider(selectedSpider);
     console.log("Spider started:", result);
+
+    // Store the runId for status checks
+    currentRunId = result.runId;
 
     // Start checking status
     startStatusCheck();
@@ -826,27 +831,30 @@ function startStatusCheck() {
 
 // Check the current status of the selected spider
 async function checkSpiderStatus() {
-  if (!selectedSpider) return;
+  if (!selectedSpider || !currentRunId) return;
 
   try {
-    const status = await api.getSpiderStatus(selectedSpider);
-    console.log("Spider status:", status);
+    const response = await api.getSpiderStatus(selectedSpider, currentRunId);
+    console.log("Spider status:", response);
 
-    if (status.status === "not_started") {
-      showStatus("waiting", "Spider has not been started yet.");
-      updateProgress(0);
+    // Get the status from the standardized response
+    const status = response.data.status;
+
+    if (status.status === "starting") {
+      showStatus("starting", "Spider is starting up...");
+      updateProgress(10);
       createEbookBtn.disabled = true;
     } else if (status.status === "running") {
-      showStatus(
-        "running",
-        `Spider is running. Scraped ${status.items_scraped} items so far (${status.file_size_human}).`
-      );
-      updateProgress(50); // We don't know the total, so show indeterminate progress
+      showStatus("running", `Spider is running. Progress: ${status.progress}%`);
+      updateProgress(status.progress || 50);
       createEbookBtn.disabled = true;
     } else if (status.status === "completed") {
+      const items = status.results?.items_scraped || 0;
+      const fileSize = status.results?.file_size_human || "0 KB";
+
       showStatus(
         "completed",
-        `Spider completed. Scraped ${status.items_scraped} items (${status.file_size_human}).`
+        `Spider completed. Scraped ${items} items (${fileSize}).`
       );
       updateProgress(100);
       createEbookBtn.disabled = false;
@@ -855,6 +863,24 @@ async function checkSpiderStatus() {
       showNotification(
         "Spider completed successfully! You can now generate an ebook.",
         "success"
+      );
+
+      // Stop checking status
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+      }
+
+      isProcessing = false;
+    } else if (status.status === "failed") {
+      showStatus("error", `Spider failed: ${status.error || "Unknown error"}`);
+      updateProgress(0);
+      createEbookBtn.disabled = true;
+
+      // Show notification when failed
+      showNotification(
+        `Spider failed: ${status.error || "Unknown error"}`,
+        "error"
       );
 
       // Stop checking status

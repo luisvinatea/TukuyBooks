@@ -93,7 +93,7 @@ class TukuyBooksAPI {
   async getSpiders() {
     try {
       const data = await this.fetchWithRetry(`${this.baseUrl}/spiders`);
-      return data.spiders;
+      return data.data.spiders;
     } catch (error) {
       console.error("Error getting spiders:", error);
       throw error;
@@ -116,13 +116,16 @@ class TukuyBooksAPI {
   }
 
   /**
-   * Get the status of a spider
+   * Get the status of a spider run
    *
    * @param {string} spiderId - ID of the spider
+   * @param {string} runId - ID of the spider run
    * @returns {Promise<Object>} - Status information
    */
-  async getSpiderStatus(spiderId) {
-    return this.fetchWithRetry(`${this.baseUrl}/spiders/${spiderId}/status`);
+  async getSpiderStatus(spiderId, runId) {
+    return this.fetchWithRetry(
+      `${this.baseUrl}/spiders/${spiderId}/status?runId=${runId}`
+    );
   }
 
   /**
@@ -159,7 +162,7 @@ class TukuyBooksAPI {
   async getAvailableEbooks() {
     try {
       const data = await this.fetchWithRetry(`${this.baseUrl}/ebooks`);
-      return data.ebooks;
+      return data.data.ebooks;
     } catch (error) {
       console.error("Error getting available ebooks:", error);
       throw error;
