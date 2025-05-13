@@ -268,15 +268,41 @@
       </div>
     </div>
 
-    <!-- Theme Toggle Button -->
-    <button
-      id="theme-toggle"
-      class="theme-toggle"
-      aria-label="Toggle dark/light mode"
-    >
-      <i class="fas fa-moon"></i>
-      <i class="fas fa-sun"></i>
-    </button>
+    <!-- Activity Panel -->
+    <div id="activity-panel" class="activity-panel">
+      <div class="activity-panel-header">
+        <h3>Recent Activity</h3>
+        <button id="clear-activities-btn" class="btn secondary-btn">
+          Clear
+        </button>
+        <button id="close-activity-panel-btn" class="close-btn">&times;</button>
+      </div>
+      <div id="activity-list" class="activity-list">
+        <!-- Activities will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <!-- Theme Toggle Button -->
+      <button
+        id="theme-toggle"
+        class="action-button theme-toggle"
+        aria-label="Toggle dark/light mode"
+      >
+        <i class="fas fa-moon"></i>
+        <i class="fas fa-sun"></i>
+      </button>
+
+      <!-- Activity Log Button -->
+      <button
+        id="activity-toggle"
+        class="action-button activity-toggle"
+        aria-label="Show activity log"
+      >
+        <i class="fas fa-history"></i>
+      </button>
+    </div>
 
     <!-- Scripts -->
     <script type="module" src="js/main.js"></script>

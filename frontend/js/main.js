@@ -29,6 +29,69 @@ const closeBtn = document.querySelector(".close-btn");
 // Add theme toggle button
 const themeToggle = document.getElementById("theme-toggle");
 
+// DOM elements for activity panel
+const activityPanel = document.getElementById("activity-panel");
+const activityToggle = document.getElementById("activity-toggle");
+const closeActivityPanelBtn = document.getElementById(
+  "close-activity-panel-btn"
+);
+const clearActivitiesBtn = document.getElementById("clear-activities-btn");
+const activityList = document.getElementById("activity-list");
+
+// User activity tracking
+class ActivityTracker {
+  constructor() {
+    this.activities = JSON.parse(localStorage.getItem("userActivities")) || [];
+    this.maxItems = 20; // Maximum number of activities to store
+  }
+
+  // Add a new activity
+  addActivity(type, details) {
+    const activity = {
+      type,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Add to the beginning of the array
+    this.activities.unshift(activity);
+
+    // Limit the number of items
+    if (this.activities.length > this.maxItems) {
+      this.activities = this.activities.slice(0, this.maxItems);
+    }
+
+    // Save to localStorage
+    this.saveActivities();
+
+    return activity;
+  }
+
+  // Get all activities
+  getActivities() {
+    return this.activities;
+  }
+
+  // Get activities by type
+  getActivitiesByType(type) {
+    return this.activities.filter((activity) => activity.type === type);
+  }
+
+  // Save activities to localStorage
+  saveActivities() {
+    localStorage.setItem("userActivities", JSON.stringify(this.activities));
+  }
+
+  // Clear all activities
+  clearActivities() {
+    this.activities = [];
+    this.saveActivities();
+  }
+}
+
+// Create activity tracker instance
+const activityTracker = new ActivityTracker();
+
 // State variables
 let selectedSpider = null;
 let statusCheckInterval = null;
@@ -36,8 +99,45 @@ let isProcessing = false;
 let notificationTimeout = null;
 let currentTheme = localStorage.getItem("theme") || "light";
 
+// Check browser compatibility
+function checkBrowserCompatibility() {
+  // Check for necessary browser features
+  const requiredFeatures = {
+    fetch: typeof fetch !== "undefined",
+    localStorage: typeof localStorage !== "undefined",
+    promise: typeof Promise !== "undefined",
+    asyncAwait: (function () {
+      try {
+        new Function("async () => {}");
+        return true;
+      } catch (e) {
+        return false;
+      }
+    })(),
+  };
+
+  // Check if any features are missing
+  const missingFeatures = Object.entries(requiredFeatures)
+    .filter(([_, supported]) => !supported)
+    .map(([feature]) => feature);
+
+  if (missingFeatures.length > 0) {
+    const message = `Your browser is missing some required features: ${missingFeatures.join(
+      ", "
+    )}. Please update your browser for the best experience.`;
+    showNotification(message, "warning");
+    console.warn("Browser compatibility issue:", message);
+    return false;
+  }
+
+  return true;
+}
+
 // Initialize the application
 async function init() {
+  // Check browser compatibility
+  checkBrowserCompatibility();
+
   // Initialize theme
   initTheme();
 
@@ -47,22 +147,32 @@ async function init() {
   // Set up image loading handlers
   setupImageLoadHandlers();
 
+  // Set up event listeners
+  setupEventListeners();
+
   // Validate backend connection
   if (!(await validateBackendConnection())) {
     showNotification(
       "Could not connect to the backend server. Some features may not work.",
       "warning"
     );
+    return;
   }
 
-  // Load available spiders
-  await loadSpiders();
+  try {
+    // Load available spiders
+    const spiders = await api.getSpiders();
+    populateSpiderSelect(spiders);
 
-  // Load available ebooks
-  await loadAvailableEbooks();
-
-  // Set up event listeners
-  setupEventListeners();
+    // Load available ebooks
+    await loadAvailableEbooks();
+  } catch (error) {
+    console.error("Initialization error:", error);
+    showNotification(
+      "Failed to initialize the application: " + error.message,
+      "error"
+    );
+  }
 }
 
 // Initialize theme based on user preference
@@ -92,70 +202,65 @@ function toggleTheme() {
   showNotification(`Switched to ${currentTheme} theme`, "info");
 }
 
-// Set up keyboard navigation
+// Set up keyboard navigation for accessibility
 function setupKeyboardNavigation() {
+  // Modal keyboard control
   document.addEventListener("keydown", (e) => {
-    // ESC to close modals
     if (e.key === "Escape") {
+      // Close modal with Escape key
       if (modal.style.display === "block") {
         closeModal();
       }
-    }
 
-    // Ctrl+D or Cmd+D to toggle dark mode
-    if ((e.ctrlKey || e.metaKey) && e.key === "d") {
-      e.preventDefault();
-      toggleTheme();
+      // Close activity panel with Escape key
+      if (activityPanel.classList.contains("active")) {
+        toggleActivityPanel();
+      }
     }
+  });
 
-    // Alt+R to refresh ebook list
-    if (e.altKey && e.key === "r") {
-      e.preventDefault();
-      handleRefreshEbooks();
-    }
+  // Add keyboard support for buttons and interactive elements
+  const interactiveElements = [
+    runSpiderBtn,
+    createEbookBtn,
+    document.getElementById("refresh-ebooks-btn"),
+    themeToggle,
+    activityToggle,
+  ].filter(Boolean); // Filter out any null elements
+
+  interactiveElements.forEach((element) => {
+    element.addEventListener("keydown", (e) => {
+      // Activate on Enter or Space
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        element.click();
+      }
+    });
   });
 }
 
 // Set up image loading handlers
 function setupImageLoadHandlers() {
-  // Add load event to all images
+  // Get all images
   const images = document.querySelectorAll("img");
+
+  // Add loading and error handling
   images.forEach((img) => {
-    img.addEventListener("load", function () {
-      this.classList.add("loaded");
+    // Skip if already has event listeners
+    if (img.dataset.eventsAdded) return;
+
+    // Add loading attribute for better UX
+    img.setAttribute("loading", "lazy");
+
+    // Add error handler
+    img.addEventListener("error", () => {
+      img.src = "img/placeholder.png"; // Fall back to placeholder
+      img.alt = "Image failed to load";
     });
 
-    // If already loaded (e.g., from cache), add loaded class
-    if (img.complete) {
-      img.classList.add("loaded");
-    }
+    // Mark as processed
+    img.dataset.eventsAdded = "true";
   });
-
-  // Monitor for dynamically added images using MutationObserver
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.addedNodes) {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1) {
-            // Element node
-            const images = node.querySelectorAll("img");
-            images.forEach((img) => {
-              img.addEventListener("load", function () {
-                this.classList.add("loaded");
-              });
-
-              if (img.complete) {
-                img.classList.add("loaded");
-              }
-            });
-          }
-        });
-      }
-    });
-  });
-
-  // Start observing
-  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // Load available spiders from API
@@ -184,55 +289,127 @@ async function loadSpiders() {
   }
 }
 
-// Load available ebooks from API
+// Load available ebooks and populate the download section
 async function loadAvailableEbooks() {
-  try {
-    showLoadingState(ebooksContainer, "Loading available ebooks...");
+  const ebooksContainer = document.querySelector(".ebooks");
 
+  // Add loading state
+  ebooksContainer.innerHTML =
+    '<div class="loading-container"><div class="loading-spinner"></div><p>Loading available ebooks...</p></div>';
+
+  try {
     const ebooks = await api.getAvailableEbooks();
 
-    // Clear existing content (except the placeholder)
-    const placeholder = document.querySelector(".ebook-placeholder");
-    ebooksContainer.innerHTML = "";
+    if (Array.isArray(ebooks) && ebooks.length > 0) {
+      // Clear the container
+      ebooksContainer.innerHTML = "";
 
-    if (ebooks && ebooks.length > 0) {
-      // Add each ebook to the container
+      // Sort ebooks by date (newest first)
+      ebooks.sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+
+      // Create and append ebook cards
       ebooks.forEach((ebook) => {
-        const ebookCard = createEbookCard(ebook);
+        // Create ebook card
+        const ebookCard = document.createElement("div");
+        ebookCard.className = "ebook-card";
+
+        // Get the spider name from the filename if available
+        let spiderName = ebook.spider_id || "Unknown";
+
+        // Try to get a more readable name
+        try {
+          if (ebook.filename) {
+            const filenameParts = ebook.filename.split("-");
+            if (filenameParts.length > 1) {
+              spiderName =
+                filenameParts[0].charAt(0).toUpperCase() +
+                filenameParts[0].slice(1);
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing spider name:", e);
+        }
+
+        // Format the creation date
+        let createdAt = "Unknown date";
+        if (ebook.created_at) {
+          const date = new Date(ebook.created_at);
+          createdAt = date.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
+        // Determine the file type and icon
+        const isEpub = ebook.filename && ebook.filename.endsWith(".epub");
+        const isPdf = ebook.filename && ebook.filename.endsWith(".pdf");
+
+        let formatIcon = '<i class="fas fa-file"></i>';
+        let formatName = "Unknown";
+
+        if (isEpub) {
+          formatIcon = '<i class="fas fa-book"></i>';
+          formatName = "EPUB";
+        } else if (isPdf) {
+          formatIcon = '<i class="fas fa-file-pdf"></i>';
+          formatName = "PDF";
+        }
+
+        // Build the card HTML
+        ebookCard.innerHTML = `
+          <div class="ebook-format">${formatIcon}</div>
+          <div class="ebook-info">
+            <h3 class="ebook-title">${spiderName}</h3>
+            <p class="ebook-details">
+              <span class="format-badge">${formatName}</span>
+              <span class="created-date">${createdAt}</span>
+            </p>
+          </div>
+          <div class="ebook-actions">
+            <a href="#" class="download-link" data-filename="${ebook.filename}" title="Download this ebook">
+              <i class="fas fa-download"></i>
+            </a>
+          </div>
+        `;
+
+        // Append to container
         ebooksContainer.appendChild(ebookCard);
       });
 
-      // Add the placeholder back
-      if (placeholder) {
-        ebooksContainer.appendChild(placeholder);
-      }
-
-      console.log("Loaded ebooks:", ebooks);
+      // Add event listeners to the download links
+      document.querySelectorAll(".download-link").forEach((link) => {
+        link.addEventListener("click", handleDownload);
+      });
     } else {
-      // No ebooks available
-      const noEbooksMessage = document.createElement("div");
-      noEbooksMessage.className = "no-ebooks-message";
-      noEbooksMessage.innerHTML = `
-        <div class="ebook-icon">
+      // No ebooks found
+      ebooksContainer.innerHTML = `
+        <div class="empty-state">
           <i class="fas fa-book-open"></i>
+          <p>No ebooks available yet. Generate one using the form above!</p>
         </div>
-        <h3>No Ebooks Available Yet</h3>
-        <p>Generate your first ebook by selecting a documentation source above.</p>
       `;
-      ebooksContainer.appendChild(noEbooksMessage);
-
-      // Add the placeholder back
-      if (placeholder) {
-        ebooksContainer.appendChild(placeholder);
-      }
     }
   } catch (error) {
-    console.error("Error loading available ebooks:", error);
-    showErrorState(
-      ebooksContainer,
-      "Failed to load available ebooks. Please refresh the page to try again."
-    );
+    console.error("Error loading ebooks:", error);
+    ebooksContainer.innerHTML = `
+      <div class="error-state">
+        <i class="fas fa-exclamation-triangle"></i>
+        <p>Failed to load available ebooks. Please try again.</p>
+        <button class="btn secondary-btn" onclick="loadAvailableEbooks()">Retry</button>
+      </div>
+    `;
   }
+}
+
+// Handle refresh ebooks button click
+function handleRefreshEbooks() {
+  loadAvailableEbooks();
+  showNotification("Refreshing ebook list...", "info");
 }
 
 // Create an ebook card element
@@ -332,6 +509,91 @@ function showErrorState(container, message) {
   `;
 }
 
+// Format date for display
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleString();
+}
+
+// Display activities in the activity panel
+function displayActivities() {
+  const activities = activityTracker.getActivities();
+
+  // Clear current list
+  activityList.innerHTML = "";
+
+  if (activities.length === 0) {
+    activityList.innerHTML = '<p class="empty-state">No activities yet</p>';
+    return;
+  }
+
+  // Add each activity to the list
+  activities.forEach((activity) => {
+    const activityItem = document.createElement("div");
+    activityItem.className = "activity-item";
+
+    // Format based on activity type
+    let title = "";
+    let details = "";
+
+    switch (activity.type) {
+      case "spider_run":
+        title = "Started Spider";
+        details = `Spider ID: ${activity.details.spiderId}`;
+        break;
+      case "ebook_creation":
+        title = "Created Ebook";
+        details = `Spider ID: ${
+          activity.details.spiderId
+        }, Format: ${activity.details.format.toUpperCase()}`;
+        break;
+      case "download":
+        title = "Downloaded File";
+        details = `Filename: ${activity.details.filename}`;
+        break;
+      default:
+        title = activity.type;
+        details = JSON.stringify(activity.details);
+    }
+
+    activityItem.innerHTML = `
+      <div class="activity-type">${title}</div>
+      <div class="activity-details">${details}</div>
+      <div class="activity-time">${formatDate(activity.timestamp)}</div>
+    `;
+
+    activityList.appendChild(activityItem);
+  });
+}
+
+// Toggle activity panel
+function toggleActivityPanel() {
+  activityPanel.classList.toggle("active");
+
+  if (activityPanel.classList.contains("active")) {
+    displayActivities();
+  }
+}
+
+// Set up additional event listeners for the activity panel
+function setupActivityPanel() {
+  if (activityToggle) {
+    activityToggle.addEventListener("click", toggleActivityPanel);
+  }
+
+  if (closeActivityPanelBtn) {
+    closeActivityPanelBtn.addEventListener("click", toggleActivityPanel);
+  }
+
+  if (clearActivitiesBtn) {
+    clearActivitiesBtn.addEventListener("click", () => {
+      activityTracker.clearActivities();
+      displayActivities();
+      showNotification("Activity history cleared", "info");
+    });
+  }
+}
+
 // Set up event listeners
 function setupEventListeners() {
   // Spider selection
@@ -368,55 +630,8 @@ function setupEventListeners() {
     themeToggle.addEventListener("click", toggleTheme);
   }
 
-  // Listen for system theme changes
-  if (window.matchMedia) {
-    const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    colorSchemeQuery.addEventListener("change", (e) => {
-      // Only change if user has no preference set
-      if (!localStorage.getItem("theme")) {
-        if (e.matches) {
-          document.body.classList.add("dark-theme");
-          currentTheme = "dark";
-        } else {
-          document.body.classList.remove("dark-theme");
-          currentTheme = "light";
-        }
-      }
-    });
-
-    // Initialize based on system preference if user has no preference
-    if (!localStorage.getItem("theme")) {
-      if (colorSchemeQuery.matches) {
-        document.body.classList.add("dark-theme");
-        currentTheme = "dark";
-      }
-    }
-  }
-}
-
-// Handle refresh ebooks button click
-async function handleRefreshEbooks() {
-  const refreshBtn = document.getElementById("refresh-ebooks-btn");
-
-  // Add rotating animation class
-  if (refreshBtn) {
-    refreshBtn.classList.add("refresh-rotating");
-    refreshBtn.disabled = true;
-  }
-
-  // Show notification
-  showNotification("Refreshing available ebooks...", "info");
-
-  // Refresh ebooks
-  await loadAvailableEbooks();
-
-  // Remove rotating animation class after refresh
-  if (refreshBtn) {
-    setTimeout(() => {
-      refreshBtn.classList.remove("refresh-rotating");
-      refreshBtn.disabled = false;
-    }, 500);
-  }
+  // Set up activity panel listeners
+  setupActivityPanel();
 }
 
 // Handle spider selection change
@@ -437,7 +652,7 @@ function handleSpiderSelection() {
 // Validate spider selection
 function validateSpiderSelection() {
   if (!selectedSpider) {
-    showNotification("Please select a documentation source", "warning");
+    showNotification("Please select a documentation source first.", "warning");
     return false;
   }
   return true;
@@ -446,15 +661,12 @@ function validateSpiderSelection() {
 // Validate connection to backend
 async function validateBackendConnection() {
   try {
-    // Try to fetch spiders as a simple check
+    // Try to connect to the backend API
     await api.getSpiders();
+    console.log("Backend connection successful");
     return true;
   } catch (error) {
-    console.error("Backend connection error:", error);
-    showModal(
-      "Connection Error",
-      "Could not connect to the backend server. Please make sure the server is running and try again."
-    );
+    console.error("Backend connection failed:", error);
     return false;
   }
 }
@@ -473,6 +685,12 @@ async function handleRunSpider() {
 
     showStatus("starting", "Starting the spider...");
     showNotification("Starting spider process...", "info");
+
+    // Track activity
+    activityTracker.addActivity("spider_run", {
+      spiderId: selectedSpider,
+      timestamp: new Date().toISOString(),
+    });
 
     const result = await api.runSpider(selectedSpider);
     console.log("Spider started:", result);
@@ -602,6 +820,13 @@ async function handleCreateEbook() {
       `Creating ${format.toUpperCase()} file. This may take a few minutes...`
     );
 
+    // Track activity
+    activityTracker.addActivity("ebook_creation", {
+      spiderId: selectedSpider,
+      format: format,
+      timestamp: new Date().toISOString(),
+    });
+
     const result = await api.createEbook(selectedSpider, format);
     console.log("Ebook created:", result);
 
@@ -661,6 +886,13 @@ function handleDownload(event) {
   const filename = event.currentTarget.dataset.filename;
   if (filename) {
     showNotification(`Downloading ${filename}...`, "info");
+
+    // Track activity
+    activityTracker.addActivity("download", {
+      filename: filename,
+      timestamp: new Date().toISOString(),
+    });
+
     window.location.href = api.getDownloadUrl(filename);
   }
 }

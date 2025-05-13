@@ -20,6 +20,11 @@ The TukuyBooks web interface allows you to:
 - **Responsive UI**: Mobile-friendly interface that works across devices
 - **Real-time Status Updates**: Monitor scraping progress with real-time notifications
 - **Offline Reading**: Download ebooks for offline reading on e-readers or other devices
+- **Dark Mode**: Comfortable reading experience in low-light environments
+- **User Activity Tracking**: Keep track of your scraping and ebook generation history
+- **Advanced Error Handling**: Automatic retry functionality for more reliable operation
+- **Accessibility**: Full keyboard navigation support and screen reader compatibility
+- **Cross-Browser Support**: Works across all modern browsers with fallbacks
 
 ## Vision
 

@@ -13,6 +13,7 @@ class TukuyBooksAPI {
     this.baseUrl = baseUrl;
     this.activeRequests = 0;
     this.loadingIndicator = document.getElementById("global-loading");
+    this.maxRetries = 3; // Maximum number of retries for failed requests
   }
 
   /**
@@ -39,26 +40,63 @@ class TukuyBooksAPI {
   }
 
   /**
+   * Make a fetch request with automatic retry
+   *
+   * @param {string} url - URL to fetch
+   * @param {Object} options - Fetch options
+   * @param {number} retries - Number of retries left
+   * @returns {Promise<Object>} - Response data
+   */
+  async fetchWithRetry(url, options = {}, retries = this.maxRetries) {
+    this.showLoading();
+
+    try {
+      const response = await fetch(url, options);
+      const data = await response.json();
+
+      if (!data.success && retries > 0 && response.status >= 500) {
+        // Server error, retry after a delay
+        console.log(`Retrying request to ${url}, ${retries} retries left`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return this.fetchWithRetry(url, options, retries - 1);
+      }
+
+      if (!data.success) {
+        throw new Error(data.message || "API request failed");
+      }
+
+      return data;
+    } catch (error) {
+      if (
+        retries > 0 &&
+        (error.message.includes("network") ||
+          error.message.includes("failed to fetch"))
+      ) {
+        // Network error, retry after a delay
+        console.log(
+          `Retrying request to ${url} due to network error, ${retries} retries left`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return this.fetchWithRetry(url, options, retries - 1);
+      }
+      throw error;
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  /**
    * Get a list of available spiders
    *
    * @returns {Promise<Array>} - List of available spiders
    */
   async getSpiders() {
-    this.showLoading();
     try {
-      const response = await fetch(`${this.baseUrl}/spiders`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to get spiders");
-      }
-
+      const data = await this.fetchWithRetry(`${this.baseUrl}/spiders`);
       return data.spiders;
     } catch (error) {
       console.error("Error getting spiders:", error);
       throw error;
-    } finally {
-      this.hideLoading();
     }
   }
 
@@ -69,28 +107,12 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status of the spider run
    */
   async runSpider(spiderId) {
-    this.showLoading();
-    try {
-      const response = await fetch(`${this.baseUrl}/spiders/${spiderId}/run`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to run spider");
-      }
-
-      return data;
-    } catch (error) {
-      console.error(`Error running spider ${spiderId}:`, error);
-      throw error;
-    } finally {
-      this.hideLoading();
-    }
+    return this.fetchWithRetry(`${this.baseUrl}/spiders/${spiderId}/run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   /**
@@ -100,24 +122,7 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status information
    */
   async getSpiderStatus(spiderId) {
-    this.showLoading();
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/spiders/${spiderId}/status`
-      );
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to get spider status");
-      }
-
-      return data;
-    } catch (error) {
-      console.error(`Error getting status for spider ${spiderId}:`, error);
-      throw error;
-    } finally {
-      this.hideLoading();
-    }
+    return this.fetchWithRetry(`${this.baseUrl}/spiders/${spiderId}/status`);
   }
 
   /**
@@ -128,9 +133,8 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status of the ebook creation
    */
   async createEbook(spiderId, format = "epub") {
-    this.showLoading();
     try {
-      const response = await fetch(
+      const data = await this.fetchWithRetry(
         `${this.baseUrl}/spiders/${spiderId}/ebook`,
         {
           method: "POST",
@@ -140,19 +144,10 @@ class TukuyBooksAPI {
           body: JSON.stringify({ format }),
         }
       );
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to create ebook");
-      }
-
       return data;
     } catch (error) {
       console.error(`Error creating ${format} for spider ${spiderId}:`, error);
       throw error;
-    } finally {
-      this.hideLoading();
     }
   }
 
@@ -162,21 +157,12 @@ class TukuyBooksAPI {
    * @returns {Promise<Array>} - List of available ebooks
    */
   async getAvailableEbooks() {
-    this.showLoading();
     try {
-      const response = await fetch(`${this.baseUrl}/ebooks`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to get available ebooks");
-      }
-
+      const data = await this.fetchWithRetry(`${this.baseUrl}/ebooks`);
       return data.ebooks;
     } catch (error) {
       console.error("Error getting available ebooks:", error);
       throw error;
-    } finally {
-      this.hideLoading();
     }
   }
 
