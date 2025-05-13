@@ -10,15 +10,37 @@ This is the backend API for TukuyBooks, deployed on Vercel.
 - `/api/spiders/:id/ebook`: Generate an ebook from scraped data
 - `/api/ebooks`: Get list of available ebooks
 - `/api/download/:filename`: Download a specific file
+- `/_vercel/health`: Health check endpoint for Vercel monitoring
 
 ## Deployment
 
 This API is configured for deployment to Vercel. The main entry point is `api/index.py`.
 
-### Configuration
+### Vercel Configuration
 
-- `vercel.json`: Main deployment configuration
-- `api/requirements.txt`: Python dependencies
+The API is deployed using a single `vercel.json` configuration file in the `backend` directory, with these key features:
+
+- **Functions**: Used instead of the legacy `builds` property for improved memory and runtime control
+- **Rewrites**: Used instead of the legacy `routes` property to avoid conflicts with headers
+- **Headers**: Properly configured CORS headers for API requests
+
+### Avoiding Configuration Conflicts
+
+We've implemented these best practices to avoid Vercel configuration conflicts:
+
+1. Using only one configuration file (`vercel.json`) instead of multiple
+2. Using modern Vercel configuration properties (`functions`, `rewrites`) instead of legacy ones (`builds`, `routes`)
+3. Proper separation of concerns between routing and CORS headers
+
+### Dependencies
+
+- `api/requirements.txt`: Python dependencies including Flask, Scrapy, and other required packages
+- `api/runtime.txt`: Specifies the Python version
+
+### Development vs Production
+
+When developing locally, the API runs as a standard Flask application. On Vercel, it runs as a serverless function with appropriate handlers for request processing.
+
 - `api/runtime.txt`: Python version specification
 
 ### Environment Variables
