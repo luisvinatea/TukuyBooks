@@ -1,0 +1,12 @@
+{
+  "spiders": [
+    {
+      "id": "python_docs",
+      "name": "Python Documentation",
+      "description": "Scrapes Python 3 documentation from docs.python.org",
+      "module": "backend.spiders.python_docs_spider",
+      "class": "PythonDocsSpider",
+      "output_prefix": "Python3Docs"
+    }
+  ]
+}

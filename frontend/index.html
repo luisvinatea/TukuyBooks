@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      TukuyBooks - Transform Open-Source Documentation into Free Ebooks
+    </title>
+    <link rel="stylesheet" href="css/normalize.css" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <!-- Font Awesome for icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <meta
+      name="description"
+      content="TukuyBooks is an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs."
+    />
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <div class="container">
+          <div class="logo">
+            <h1><i class="fas fa-book"></i> TukuyBooks</h1>
+            <p class="tagline">
+              Transform Open-Source Documentation into Free Ebooks
+            </p>
+          </div>
+          <nav class="main-nav">
+            <ul>
+              <li><a href="#about">About</a></li>
+              <li><a href="#generate">Generate</a></li>
+              <li><a href="#download">Download</a></li>
+              <li>
+                <a
+                  href="https://github.com/luisvinatea/TukuyBooks"
+                  target="_blank"
+                  >GitHub <i class="fab fa-github"></i
+                ></a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <!-- Hero Section -->
+        <section class="hero">
+          <div class="container">
+            <h2>Free Access to Knowledge</h2>
+            <p>
+              Turn open-source documentation into portable ebooks for offline
+              learning anywhere
+            </p>
+            <a href="#generate" class="btn primary-btn">Start Converting</a>
+            <a href="#about" class="btn secondary-btn">Learn More</a>
+          </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="about">
+          <div class="container">
+            <h2>About TukuyBooks</h2>
+            <p>
+              TukuyBooks is an open-source initiative to scrape, process, and
+              convert freely available online documentation into high-quality,
+              offline-accessible EPUBs and PDFs. Our mission is to preserve and
+              democratize knowledge from the open-source internet, making it
+              available to anyone, anywhere, without barriers.
+            </p>
+
+            <div class="features">
+              <div class="feature">
+                <i class="fas fa-spider"></i>
+                <h3>Web Scraping</h3>
+                <p>
+                  Capture valuable documentation from open-source websites with
+                  custom spiders.
+                </p>
+              </div>
+
+              <div class="feature">
+                <i class="fas fa-book"></i>
+                <h3>Ebook Generation</h3>
+                <p>
+                  Transform web content into portable, optimized formats (EPUB,
+                  PDF) with proper formatting.
+                </p>
+              </div>
+
+              <div class="feature">
+                <i class="fas fa-download"></i>
+                <h3>Free Distribution</h3>
+                <p>
+                  Download and share these resources freely via our platform and
+                  GitHub.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Generate Section -->
+        <section id="generate" class="generate">
+          <div class="container">
+            <h2>Generate an Ebook</h2>
+            <p>Follow these steps to create your own documentation ebook:</p>
+
+            <div class="steps">
+              <div class="step">
+                <div class="step-number">1</div>
+                <h3>Select a Source</h3>
+                <div class="form-group">
+                  <label for="spider-select"
+                    >Choose Documentation Source:</label
+                  >
+                  <select id="spider-select">
+                    <option value="">Please select a source</option>
+                    <!-- This will be populated by JavaScript -->
+                  </select>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">2</div>
+                <h3>Start the Process</h3>
+                <button id="run-spider-btn" class="btn primary-btn" disabled>
+                  <i class="fas fa-spider"></i> Start Scraping
+                </button>
+                <div id="spider-status" class="status-box hidden">
+                  <h4>Status: <span id="status-text">Waiting</span></h4>
+                  <div class="progress-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                  </div>
+                  <p id="status-details"></p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">3</div>
+                <h3>Convert to Ebook</h3>
+                <div class="format-options">
+                  <div class="format-option">
+                    <input
+                      type="radio"
+                      id="format-epub"
+                      name="format"
+                      value="epub"
+                      checked
+                    />
+                    <label for="format-epub">
+                      <i class="fas fa-book"></i>
+                      <span>EPUB</span>
+                    </label>
+                  </div>
+                  <div class="format-option">
+                    <input
+                      type="radio"
+                      id="format-pdf"
+                      name="format"
+                      value="pdf"
+                    />
+                    <label for="format-pdf">
+                      <i class="fas fa-file-pdf"></i>
+                      <span>PDF</span>
+                    </label>
+                  </div>
+                </div>
+                <button id="create-ebook-btn" class="btn primary-btn" disabled>
+                  <i class="fas fa-book"></i> Generate Ebook
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Download Section -->
+        <section id="download" class="download">
+          <div class="container">
+            <h2>Download Ebooks</h2>
+            <p>Ready to use ebooks are available for immediate download:</p>
+
+            <div class="ebooks">
+              <!-- This will be populated by JavaScript with available ebooks -->
+              <div class="ebook-card">
+                <div class="ebook-icon">
+                  <i class="fas fa-book"></i>
+                </div>
+                <h3>Python 3.13.2 Documentation</h3>
+                <div class="ebook-formats">
+                  <a
+                    href="#"
+                    class="download-link"
+                    data-filename="Python3Docs.epub"
+                  >
+                    <i class="fas fa-book"></i> EPUB
+                  </a>
+                  <a
+                    href="#"
+                    class="download-link"
+                    data-filename="Python3Docs.pdf"
+                  >
+                    <i class="fas fa-file-pdf"></i> PDF
+                  </a>
+                </div>
+              </div>
+
+              <div class="ebook-placeholder">
+                <div class="ebook-icon">
+                  <i class="fas fa-plus"></i>
+                </div>
+                <h3>More Coming Soon</h3>
+                <p>Additional documentation sources will be added regularly.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="container">
+          <div class="footer-content">
+            <div class="footer-logo">
+              <h2><i class="fas fa-book"></i> TukuyBooks</h2>
+              <p>Democratizing access to open-source knowledge</p>
+            </div>
+
+            <div class="footer-links">
+              <h3>Links</h3>
+              <ul>
+                <li>
+                  <a href="https://github.com/luisvinatea/TukuyBooks"
+                    >GitHub Repository</a
+                  >
+                </li>
+                <li>
+                  <a href="https://github.com/luisvinatea/TukuyBooks/issues"
+                    >Report Issues</a
+                  >
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/luisvinatea/TukuyBooks/blob/main/CONTRIBUTING.md"
+                    >Contribute</a
+                  >
+                </li>
+                <li>
+                  <a href="https://github.com/luisvinatea/TukuyBooks/releases"
+                    >Releases</a
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="copyright">
+            <p>
+              &copy; 2025 TukuyBooks. Licensed under MIT. Created with ❤️ for
+              open knowledge.
+            </p>
+          </div>
+        </div>
+      </footer>
+
+      <!-- Modal for messages -->
+      <div id="modal" class="modal">
+        <div class="modal-content">
+          <span class="close-btn">&times;</span>
+          <h3 id="modal-title">Title</h3>
+          <p id="modal-message">Message</p>
+          <div class="modal-actions">
+            <button id="modal-ok-btn" class="btn primary-btn">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

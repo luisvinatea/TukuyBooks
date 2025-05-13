@@ -2,6 +2,17 @@
 
 Welcome to **TukuyBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
 
+## Online Interface
+
+The TukuyBooks web interface allows you to:
+
+- View available documentation sources
+- Start scraping processes
+- Generate EPUB/PDF files from scraped content
+- Download pre-generated ebooks
+
+**Visit the online interface:** [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/)
+
 ## Vision
 
 TukuyBooks aims to:
@@ -34,29 +45,87 @@ To contribute or run any pipeline, you’ll need:
 - Ghostscript (`sudo pacman -S ghostscript`)
 - Sigil (optional, for EPUB tweaks)
 
-## Directory Structure
+## Project Structure
 
-- `TukuyBooks/`: Root directory.
-  - `PythonDocs/`: Subdirectory for the Python documentation pipeline.
-    - `spiders/`: Contains `PythonDocsSpider.py`.
-    - `scripts/`: Tools like `MakeEbook.py`, `EpubChecker.py`, `BookOptimizer.sh`.
-    - `outputs/`: Generated files (e.g., `python_docs.jl`, `Python3Docs.epub`).
-  - `scrapy.cfg`: Scrapy configuration for all pipelines.
-  - *(Future subdirectories for other websites will follow this pattern.)*
+The project is organized into the structure:
 
-## General Pipeline Workflow
+```text
+TukuyBooks/
+│
+├── backend/             # Backend code
+│   ├── api/             # Flask API for the frontend
+│   ├── outputs/         # Generated files (JL, EPUB, PDF)
+│   ├── scripts/         # Utility scripts for ebook generation
+│   ├── spiders/         # Scrapy spiders for different sites
+│   └── utils/           # Common utility functions
+│
+├── frontend/            # Frontend code (deploys to GitHub Pages)
+│   ├── assets/          # Images and other assets
+│   ├── components/      # Reusable UI components
+│   ├── css/             # Stylesheets
+│   └── js/              # JavaScript files
+│
+├── PythonDocs/          # Legacy structure (being migrated)
+├── .github/workflows/   # GitHub Actions workflows
+└── CONTRIBUTING.md, LICENSE, README.md, etc.
+```
+
+## How to Use
+
+### Option 1: Web Interface (Easiest)
+
+Visit [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/) to:
+
+1. Select a documentation source
+2. Generate EPUB/PDF files
+3. Download the results
+
+### Option 2: Local Setup
+
+To run locally:
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/luisvinatea/TukuyBooks.git
+   cd TukuyBooks
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+
+3. Run a spider:
+
+   ```bash
+   cd backend
+   scrapy crawl python_docs -o outputs/python_docs.jl
+   ```
+
+4. Generate an ebook:
+
+   ```bash
+   python -m backend.scripts.make_ebook
+   ```
+
+5. Run the API (optional):
+
+   ```bash
+   python backend/api/app.py
+   ```
+
+## Workflow
 
 Each pipeline follows these steps:
 
 1. **Crawl**: Use a Scrapy spider to scrape a target website.
 2. **Generate EPUB**: Convert scraped data into an EPUB file.
-3. **Check Links**: Validate EPUB for broken `href`s and log issues.
+3. **Check Links**: Validate EPUB for broken links and log issues.
 4. **Optimize**: Reduce file size and improve formatting.
-5. **Tweak**: Manually adjust the EPUB in Sigil if needed.
-6. **Convert**: Generate a PDF from the optimized EPUB.
-7. **Release**: Host the PDF in [GitHub Releases](https://github.com/luisvinatea/TukuyBooks/releases).
-
-See individual pipeline READMEs (e.g., [PythonDocs](PythonDocs/README.md)) for specific instructions.
+5. **Convert**: Generate a PDF from the optimized EPUB.
+6. **Download**: Access the files through the web interface.
 
 ## Contributing
 
