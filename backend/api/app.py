@@ -416,5 +416,8 @@ if __name__ == "__main__":
     # Create logs directory if it doesn't exist
     os.makedirs(os.path.join("backend", "logs"), exist_ok=True)
 
+    # Determine if debug mode should be enabled
+    debug_mode = os.environ.get("FLASK_ENV") == "development"
+
     # Run the app
-    app.run(debug=True, port=5000)
+    app.run(debug=debug_mode, port=5000)
