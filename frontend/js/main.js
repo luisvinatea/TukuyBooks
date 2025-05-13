@@ -17,6 +17,7 @@ const statusDetails = document.getElementById("status-details");
 const progressBar = document.getElementById("progress-bar");
 const createEbookBtn = document.getElementById("create-ebook-btn");
 const formatRadios = document.querySelectorAll('input[name="format"]');
+const ebooksContainer = document.querySelector(".ebooks");
 
 // Modal elements
 const modal = document.getElementById("modal");
@@ -34,6 +35,9 @@ let isProcessing = false;
 async function init() {
   // Load available spiders
   await loadSpiders();
+
+  // Load available ebooks
+  await loadAvailableEbooks();
 
   // Set up event listeners
   setupEventListeners();
@@ -65,6 +69,154 @@ async function loadSpiders() {
   }
 }
 
+// Load available ebooks from API
+async function loadAvailableEbooks() {
+  try {
+    showLoadingState(ebooksContainer, "Loading available ebooks...");
+
+    const ebooks = await api.getAvailableEbooks();
+
+    // Clear existing content (except the placeholder)
+    const placeholder = document.querySelector(".ebook-placeholder");
+    ebooksContainer.innerHTML = "";
+
+    if (ebooks && ebooks.length > 0) {
+      // Add each ebook to the container
+      ebooks.forEach((ebook) => {
+        const ebookCard = createEbookCard(ebook);
+        ebooksContainer.appendChild(ebookCard);
+      });
+
+      // Add the placeholder back
+      if (placeholder) {
+        ebooksContainer.appendChild(placeholder);
+      }
+
+      console.log("Loaded ebooks:", ebooks);
+    } else {
+      // No ebooks available
+      const noEbooksMessage = document.createElement("div");
+      noEbooksMessage.className = "no-ebooks-message";
+      noEbooksMessage.innerHTML = `
+        <div class="ebook-icon">
+          <i class="fas fa-book-open"></i>
+        </div>
+        <h3>No Ebooks Available Yet</h3>
+        <p>Generate your first ebook by selecting a documentation source above.</p>
+      `;
+      ebooksContainer.appendChild(noEbooksMessage);
+
+      // Add the placeholder back
+      if (placeholder) {
+        ebooksContainer.appendChild(placeholder);
+      }
+    }
+  } catch (error) {
+    console.error("Error loading available ebooks:", error);
+    showErrorState(
+      ebooksContainer,
+      "Failed to load available ebooks. Please refresh the page to try again."
+    );
+  }
+}
+
+// Create an ebook card element
+function createEbookCard(ebook) {
+  const card = document.createElement("div");
+  card.className = "ebook-card";
+
+  // Determine the icon based on the title
+  let icon = "book";
+  if (ebook.title.toLowerCase().includes("python")) {
+    icon = "python fab";
+  } else if (ebook.title.toLowerCase().includes("javascript")) {
+    icon = "js fab";
+  } else if (ebook.title.toLowerCase().includes("java")) {
+    icon = "java fab";
+  } else if (ebook.title.toLowerCase().includes("react")) {
+    icon = "react fab";
+  }
+
+  // Format file size if available
+  const fileSize = ebook.file_size_human || "";
+  const fileSizeText = fileSize
+    ? `<span class="file-size">${fileSize}</span>`
+    : "";
+
+  // Format date if available
+  let dateText = "";
+  if (ebook.created_date) {
+    const date = new Date(ebook.created_date);
+    dateText = `<span class="created-date">Created: ${date.toLocaleDateString()}</span>`;
+  }
+
+  card.innerHTML = `
+    <div class="ebook-icon">
+      <i class="fas fa-${icon}"></i>
+    </div>
+    <div class="ebook-content">
+      <h3>${ebook.title}</h3>
+      <p class="ebook-info">${ebook.description || ""}</p>
+      <div class="ebook-meta">
+        ${dateText}
+        ${fileSizeText}
+      </div>
+      <div class="ebook-formats">
+        ${
+          ebook.epub_path
+            ? `<a href="#" class="download-link" data-filename="${getFilenameFromPath(
+                ebook.epub_path
+              )}">
+          <i class="fas fa-book"></i> EPUB
+        </a>`
+            : ""
+        }
+        ${
+          ebook.pdf_path
+            ? `<a href="#" class="download-link" data-filename="${getFilenameFromPath(
+                ebook.pdf_path
+              )}">
+          <i class="fas fa-file-pdf"></i> PDF
+        </a>`
+            : ""
+        }
+      </div>
+    </div>
+  `;
+
+  // Add event listeners to the download links
+  card.querySelectorAll(".download-link").forEach((link) => {
+    link.addEventListener("click", handleDownload);
+  });
+
+  return card;
+}
+
+// Get filename from a path
+function getFilenameFromPath(path) {
+  return path.split("/").pop();
+}
+
+// Show loading state in a container
+function showLoadingState(container, message) {
+  container.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
+// Show error state in a container
+function showErrorState(container, message) {
+  container.innerHTML = `
+    <div class="error-state">
+      <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
 // Set up event listeners
 function setupEventListeners() {
   // Spider selection
@@ -89,6 +241,34 @@ function setupEventListeners() {
       closeModal();
     }
   });
+
+  // Add refresh button event listener
+  const refreshBtn = document.getElementById("refresh-ebooks-btn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", handleRefreshEbooks);
+  }
+}
+
+// Handle refresh ebooks button click
+async function handleRefreshEbooks() {
+  const refreshBtn = document.getElementById("refresh-ebooks-btn");
+
+  // Add rotating animation class
+  if (refreshBtn) {
+    refreshBtn.classList.add("refresh-rotating");
+    refreshBtn.disabled = true;
+  }
+
+  // Refresh ebooks
+  await loadAvailableEbooks();
+
+  // Remove rotating animation class after refresh
+  if (refreshBtn) {
+    setTimeout(() => {
+      refreshBtn.classList.remove("refresh-rotating");
+      refreshBtn.disabled = false;
+    }, 500);
+  }
 }
 
 // Handle spider selection change
@@ -219,6 +399,12 @@ function resetStatus() {
 async function handleCreateEbook() {
   if (!selectedSpider || isProcessing) return;
 
+  // Validate selection
+  if (!selectedSpider) {
+    showModal("Error", "Please select a documentation source first.");
+    return;
+  }
+
   // Get selected format
   const format =
     Array.from(formatRadios).find((radio) => radio.checked)?.value || "epub";
@@ -245,6 +431,9 @@ async function handleCreateEbook() {
           window.location.href = api.getDownloadUrl(
             result.epub_path.split("/").pop()
           );
+
+          // Refresh the ebooks list after creation
+          loadAvailableEbooks();
         }
       );
     } else if (format === "pdf" && result.pdf_path) {
@@ -255,10 +444,16 @@ async function handleCreateEbook() {
           window.location.href = api.getDownloadUrl(
             result.pdf_path.split("/").pop()
           );
+
+          // Refresh the ebooks list after creation
+          loadAvailableEbooks();
         }
       );
     } else {
       showModal("Success", `${format.toUpperCase()} created successfully!`);
+
+      // Refresh the ebooks list after creation
+      loadAvailableEbooks();
     }
 
     isProcessing = false;

@@ -120,6 +120,27 @@ class TukuyBooksAPI {
   }
 
   /**
+   * Get a list of available ebooks
+   *
+   * @returns {Promise<Array>} - List of available ebooks
+   */
+  async getAvailableEbooks() {
+    try {
+      const response = await fetch(`${this.baseUrl}/ebooks`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || "Failed to get available ebooks");
+      }
+
+      return data.ebooks;
+    } catch (error) {
+      console.error("Error getting available ebooks:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get the download URL for a file
    *
    * @param {string} filename - Name of the file to download

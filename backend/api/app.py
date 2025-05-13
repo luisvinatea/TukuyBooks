@@ -264,6 +264,82 @@ def create_ebook(spider_id, format="epub"):
         }
 
 
+def get_available_ebooks():
+    """Get a list of available ebooks in the outputs directory.
+
+    Returns:
+        list: List of ebook information dictionaries.
+    """
+    ebooks = []
+    outputs_dir = os.path.join("backend", "outputs")
+
+    # Create outputs dir if it doesn't exist
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    # Map of spider IDs to names/descriptions
+    spider_info = {}
+    for spider in get_available_spiders():
+        spider_info[spider["id"]] = {
+            "name": spider.get("name", "Unknown"),
+            "description": spider.get("description", ""),
+            "output_prefix": spider.get("output_prefix", spider["id"]),
+        }
+
+    # Get all files in the outputs directory
+    for filename in os.listdir(outputs_dir):
+        file_path = os.path.join(outputs_dir, filename)
+        if not os.path.isfile(file_path):
+            continue
+
+        # Skip temporary files
+        if filename.startswith(".") or filename.startswith("_"):
+            continue
+
+        # Get file extension
+        _, ext = os.path.splitext(filename)
+
+        # Find the spider that created this file
+        spider_id = None
+        title = (
+            filename  # Default to filename if we can't determine the spider
+        )
+        description = ""
+
+        for sid, info in spider_info.items():
+            prefix = info["output_prefix"]
+            if filename.startswith(prefix):
+                spider_id = sid
+                title = info["name"]
+                description = info["description"]
+                break
+
+        # See if we already have an entry for this ebook
+        ebook_entry = None
+        for ebook in ebooks:
+            if ebook["title"] == title:
+                ebook_entry = ebook
+                break
+
+        # Create new entry if needed
+        if not ebook_entry:
+            ebook_entry = {
+                "title": title,
+                "description": description,
+                "spider_id": spider_id,
+                "epub_path": None,
+                "pdf_path": None,
+            }
+            ebooks.append(ebook_entry)
+
+        # Add the file path based on extension
+        if ext.lower() == ".epub":
+            ebook_entry["epub_path"] = file_path
+        elif ext.lower() == ".pdf":
+            ebook_entry["pdf_path"] = file_path
+
+    return ebooks
+
+
 # API routes
 @app.route("/api/spiders", methods=["GET"])
 def api_get_spiders():
@@ -288,6 +364,22 @@ def api_create_ebook(spider_id):
     """Create an ebook from scraped data."""
     format = request.json.get("format", "epub")
     return jsonify(create_ebook(spider_id, format))
+
+
+@app.route("/api/ebooks", methods=["GET"])
+def api_get_ebooks():
+    """Get a list of available ebooks."""
+    try:
+        ebooks = get_available_ebooks()
+        return jsonify({"success": True, "ebooks": ebooks})
+    except Exception as e:
+        logger.error(f"Failed to get available ebooks: {e}")
+        return jsonify(
+            {
+                "success": False,
+                "message": f"Failed to get available ebooks: {str(e)}",
+            }
+        ), 500
 
 
 @app.route("/api/download/<path:filename>", methods=["GET"])

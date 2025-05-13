@@ -179,34 +179,22 @@
         <!-- Download Section -->
         <section id="download" class="download">
           <div class="container">
-            <h2>Download Ebooks</h2>
+            <div class="section-header">
+              <h2>Download Ebooks</h2>
+              <div class="section-actions">
+                <button
+                  id="refresh-ebooks-btn"
+                  class="btn secondary-btn"
+                  title="Refresh available ebooks"
+                >
+                  <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+              </div>
+            </div>
             <p>Ready to use ebooks are available for immediate download:</p>
 
             <div class="ebooks">
-              <!-- This will be populated by JavaScript with available ebooks -->
-              <div class="ebook-card">
-                <div class="ebook-icon">
-                  <i class="fas fa-book"></i>
-                </div>
-                <h3>Python 3.13.2 Documentation</h3>
-                <div class="ebook-formats">
-                  <a
-                    href="#"
-                    class="download-link"
-                    data-filename="Python3Docs.epub"
-                  >
-                    <i class="fas fa-book"></i> EPUB
-                  </a>
-                  <a
-                    href="#"
-                    class="download-link"
-                    data-filename="Python3Docs.pdf"
-                  >
-                    <i class="fas fa-file-pdf"></i> PDF
-                  </a>
-                </div>
-              </div>
-
+              <!-- This will be populated dynamically by JavaScript -->
               <div class="ebook-placeholder">
                 <div class="ebook-icon">
                   <i class="fas fa-plus"></i>
