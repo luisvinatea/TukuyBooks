@@ -3,7 +3,10 @@
   "functions": {
     "api/index.py": {
       "memory": 1024,
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "**/*.py",
+      "excludeFiles": "**/*.{log,jl,txt,md}",
+      "runtime": "python3"
     }
   },
   "rewrites": [

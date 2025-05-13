@@ -1,14 +1,53 @@
-# Ignore unnecessary python files
+# Ignore unnecessary Python files
 
-__pycache__
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-.DS_Store
+
+# Ignore cache and log files
+
+.pytest_cache/
+.coverage
+htmlcov/
+logs/
+*.log
+
+# Ignore data files
+
+outputs/*.jl
+outputs/*.json
+
+# Ignore environment and local config
+
+.venv/
+venv/
 .env
 .env.local
 .env.development.local
 .env.test.local
+.env.production.local
+
+# Ignore any VCS folders
+
+.git/
+.hg/
+.svn/
+
+# Ignore temp and build files
+
+*.tmp
+*.temp
+*.bak
+.vercel/
+now.json
+
+# Ensure we keep essential files
+
+!api/index.py
+!api/app.py
+!api/requirements.txt
+!api/runtime.txt
 .env.production.local
 .pytest_cache
 logs/
