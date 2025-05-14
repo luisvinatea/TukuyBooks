@@ -38,6 +38,14 @@ const getSpiderById = asyncHandler(async (req, res) => {
  */
 const runSpider = asyncHandler(async (req, res) => {
   const spiderId = req.params.id;
+  if (!/^[a-zA-Z0-9_-]+$/.test(spiderId)) {
+    throw new APIError(
+      "Invalid spider ID format",
+      400,
+      "INVALID_PARAMETER",
+      { parameter: "id" }
+    );
+  }
 
   try {
     const result = await spiderService.runSpider(spiderId);

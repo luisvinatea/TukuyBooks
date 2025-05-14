@@ -137,6 +137,9 @@ function getSpiderRunStatus(runId) {
     // Try to get progress information from the spider's output
     try {
       const spiderId = status.spiderId;
+      if (!/^[a-zA-Z0-9_-]+$/.test(spiderId)) {
+        throw new Error(`Invalid spider ID: ${spiderId}`);
+      }
       const outputPath = path.join(paths.outputs, `${spiderId}.jl`);
 
       // Check if output file exists and get its stats
