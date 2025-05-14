@@ -30,16 +30,45 @@ echo "Checking for required tools..."
 
 MISSING_TOOLS=0
 
+# In Docker environment, we'll attempt to install missing tools
+INSIDE_DOCKER=0
+if [ -f /.dockerenv ]; then
+    INSIDE_DOCKER=1
+    echo "Running inside Docker container"
+fi
+
 if ! command -v gs &>/dev/null; then
-    echo "Error: Ghostscript (gs) is not installed"
-    echo "Install it with: sudo pacman -S ghostscript (or equivalent for your OS)"
-    MISSING_TOOLS=1
+    echo "Ghostscript (gs) is not installed"
+    if [ $INSIDE_DOCKER -eq 1 ]; then
+        echo "Attempting to install Ghostscript..."
+        apt-get update && apt-get install -y ghostscript
+        if command -v gs &>/dev/null; then
+            echo "✅ Ghostscript installed successfully"
+        else
+            echo "❌ Failed to install Ghostscript"
+            MISSING_TOOLS=1
+        fi
+    else
+        echo "Install it with: sudo apt install ghostscript (or equivalent for your OS)"
+        MISSING_TOOLS=1
+    fi
 fi
 
 if ! command -v ebook-convert &>/dev/null; then
-    echo "Error: Calibre (ebook-convert) is not installed"
-    echo "Install it with: sudo pacman -S calibre (or equivalent for your OS)"
-    MISSING_TOOLS=1
+    echo "Calibre (ebook-convert) is not installed"
+    if [ $INSIDE_DOCKER -eq 1 ]; then
+        echo "Attempting to install Calibre..."
+        apt-get update && apt-get install -y calibre
+        if command -v ebook-convert &>/dev/null; then
+            echo "✅ Calibre installed successfully"
+        else
+            echo "❌ Failed to install Calibre"
+            MISSING_TOOLS=1
+        fi
+    else
+        echo "Install it with: sudo apt install calibre (or equivalent for your OS)"
+        MISSING_TOOLS=1
+    fi
 fi
 
 if [ $MISSING_TOOLS -eq 1 ]; then

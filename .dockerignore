@@ -1,0 +1,36 @@
+# .dockerignore - Specify files to exclude from Docker build context
+
+# Git
+.git
+.gitignore
+
+# Output files and directories
+outputs/
+**/outputs/*
+**/outputs/optimized/*
+
+# Node.js artifacts (from the frontend)
+node_modules
+npm-debug.log
+
+# Editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Docker files (not needed inside the container)
+Dockerfile
+docker-compose.yml
+.dockerignore

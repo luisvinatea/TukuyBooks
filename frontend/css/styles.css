@@ -232,6 +232,71 @@
   color: var(--dark-primary-color);
 }
 
+/* Docker Information Section */
+.docker-info {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: 0 3px 10px var(--card-shadow);
+  padding: 2rem;
+  margin: 2rem 0;
+  border-left: 4px solid #2496ed; /* Docker blue */
+}
+
+.docker-info h3 {
+  color: var(--text-color);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.docker-info .fa-docker {
+  color: #2496ed; /* Docker blue */
+}
+
+.code-block {
+  background: var(--gray-light);
+  padding: 1.25rem;
+  border-radius: var(--border-radius);
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--border-color);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.9rem;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.dark-theme .code-block {
+  background: var(--dark-gray-light);
+  border-color: var(--dark-border-color);
+  color: var(--dark-text-color);
+}
+
+.docker-info .btn {
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feature .fa-docker {
+  color: #2496ed; /* Docker blue */
+}
+
+/* Media query for smaller devices */
+@media (max-width: 768px) {
+  .docker-info {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .code-block {
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;

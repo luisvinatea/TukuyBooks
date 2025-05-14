@@ -2,6 +2,26 @@
 
 Welcome to **TukuyBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
 
+## Docker Usage
+
+TukuyBooks now provides Docker containers for easy local deployment of spider pipelines. Run our spiders without worrying about dependencies or complex setup:
+
+```bash
+# Build the Docker image
+./run_docker.sh
+
+# Run the Python documentation spider
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest crawl python_docs
+
+# Generate an ebook from the scraped data
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest make-ebook python_docs
+
+# Run the full pipeline (crawl -> make-ebook -> optimize)
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_docs
+```
+
+The generated ebooks will be available in your local `./outputs` directory.
+
 ## Online Interface
 
 The TukuyBooks web interface allows you to:

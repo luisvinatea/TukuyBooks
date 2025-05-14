@@ -112,6 +112,41 @@
                   GitHub.
                 </p>
               </div>
+
+              <div class="feature">
+                <i class="fab fa-docker"></i>
+                <h3>Docker Support</h3>
+                <p>
+                  Run our spiders locally using Docker containers without
+                  worrying about dependencies or setup.
+                </p>
+              </div>
+            </div>
+
+            <!-- Docker Instructions Card -->
+            <div class="docker-info">
+              <h3><i class="fab fa-docker"></i> Run Locally with Docker</h3>
+              <p>
+                TukuyBooks now supports Docker for easy local deployment. Run
+                our spiders on your own machine with just a few commands:
+              </p>
+              <pre class="code-block"><code>
+# Clone the repository
+git clone https://github.com/luisvinatea/TukuyBooks.git
+cd TukuyBooks
+
+# Build and run the container
+./run_docker.sh
+
+# Run a spider (e.g., Python docs)
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_docs</code></pre>
+              <a
+                href="https://github.com/luisvinatea/TukuyBooks/blob/main/DOCKER.md"
+                class="btn secondary-btn"
+                target="_blank"
+              >
+                <i class="fab fa-docker"></i> View Docker Guide
+              </a>
             </div>
           </div>
         </section>
@@ -363,3 +398,4 @@
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
+```

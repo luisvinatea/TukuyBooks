@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  tukuybooks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tukuybooks:latest
+    volumes:
+      # Mount the outputs directory to persist the generated files
+      - ./outputs:/app/backend/outputs
+    command: help
