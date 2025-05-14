@@ -14,7 +14,10 @@ const {
   errorHandler,
   notFoundHandler,
 } = require("./middleware/errorMiddleware");
-const { standardLimiter } = require("./middleware/rateLimitMiddleware");
+const {
+  standardLimiter,
+  healthCheckLimiter,
+} = require("./middleware/rateLimitMiddleware");
 const {
   createRequestLogger,
   createRequestDebugger,
@@ -49,7 +52,8 @@ app.use(createRequestLogger()); // Use our custom request logger
 app.use(createRequestDebugger()); // Add detailed request debugging
 app.use(express.urlencoded({ extended: true }));
 
-// Apply rate limiting to all requests
+// Apply rate limiters - special limiter for health checks first, then standard limiter for everything else
+app.use(healthCheckLimiter);
 app.use(standardLimiter);
 
 // Ensure necessary directories exist

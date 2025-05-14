@@ -21,15 +21,22 @@ router.get("/_vercel/health", (req, res) => {
 router.get("/health", (req, res) => {
   // Ensure CORS headers are set for health endpoint specifically
   const allowedOrigins = [
-    "https://example.com",
-    "https://subdomain.example.com",
-    "https://example.com:1337"
+    "https://luisvinatea.github.io",
+    "https://localhost:3000",
+    "http://localhost:3000",
+    "http://localhost:8080",
   ];
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+
+  // Either set the specific origin if it's in our allowed list, or use * for development
+  if (origin && allowedOrigins.includes(origin)) {
     res.set("Access-Control-Allow-Origin", origin);
-    res.set("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.set("Access-Control-Allow-Origin", "*");
   }
+
+  // Set remaining CORS headers
+  res.set("Access-Control-Allow-Credentials", "true");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set(
     "Access-Control-Allow-Headers",
@@ -54,15 +61,22 @@ router.get("*", (req, res, next) => {
   ) {
     // Ensure CORS headers are set for query-based health endpoint
     const allowedOrigins = [
-      "https://example.com",
-      "https://subdomain.example.com",
-      "https://example.com:1337"
+      "https://luisvinatea.github.io",
+      "https://localhost:3000",
+      "http://localhost:3000",
+      "http://localhost:8080",
     ];
     const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
+
+    // Either set the specific origin if it's in our allowed list, or use * for development
+    if (origin && allowedOrigins.includes(origin)) {
       res.set("Access-Control-Allow-Origin", origin);
-      res.set("Access-Control-Allow-Credentials", "true");
+    } else {
+      res.set("Access-Control-Allow-Origin", "*");
     }
+
+    // Set remaining CORS headers
+    res.set("Access-Control-Allow-Credentials", "true");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.set(
       "Access-Control-Allow-Headers",

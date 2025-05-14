@@ -87,8 +87,15 @@ class TukuyBooksAPI {
    * @param {string} url - URL to fetch
    * @param {Object} options - Fetch options
    * @param {number} retries - Number of retries left
+   * @param {number} retryCount - Current retry count for exponential backoff
    * @returns {Promise<Object>} - Response data
-   */ async fetchWithRetry(url, options = {}, retries = this.maxRetries) {
+   */
+  async fetchWithRetry(
+    url,
+    options = {},
+    retries = this.maxRetries,
+    retryCount = 0
+  ) {
     this.showLoading();
 
     // Ensure consistent CORS settings for all requests
@@ -100,6 +107,15 @@ class TukuyBooksAPI {
     options.mode = "cors";
     options.credentials = "omit"; // Avoid CORS issues with credentials
 
+    // Calculate exponential backoff delay if this is a retry
+    const delay = retryCount > 0 ? Math.pow(2, retryCount) * 1000 : 0;
+    if (delay > 0) {
+      console.log(
+        `Backing off for ${delay / 1000} seconds before retry ${retryCount}...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
     // Try using query parameter approach for API endpoints
     if (url.includes("/health") && !url.includes("?path=")) {
       url = url.replace("/health", "?path=health");
@@ -107,13 +123,41 @@ class TukuyBooksAPI {
 
     try {
       const response = await fetch(url, options);
-      const data = await response.json();
+
+      // Handle rate limiting (429) specially with exponential backoff
+      if (response.status === 429 && retries > 0) {
+        console.log(
+          `Rate limit hit on ${url}, applying exponential backoff...`
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, retryCount + 1) * 1000)
+        );
+        return this.fetchWithRetry(url, options, retries - 1, retryCount + 1);
+      }
+
+      // Try to parse the response as JSON
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        if (response.status === 429) {
+          // If rate limited and can't parse JSON, still try backoff
+          console.log(
+            `Rate limited response cannot be parsed as JSON. Retrying...`
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, retryCount + 1) * 1000)
+          );
+          return this.fetchWithRetry(url, options, retries - 1, retryCount + 1);
+        }
+        throw parseError;
+      }
 
       if (!data.success && retries > 0 && response.status >= 500) {
         // Server error, retry after a delay
         console.log(`Retrying request to ${url}, ${retries} retries left`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        return this.fetchWithRetry(url, options, retries - 1);
+        return this.fetchWithRetry(url, options, retries - 1, retryCount + 1);
       }
 
       if (!data.success) {
@@ -127,12 +171,16 @@ class TukuyBooksAPI {
         (error.message.includes("network") ||
           error.message.includes("failed to fetch"))
       ) {
-        // Network error, retry after a delay
+        // Network error, retry with exponential backoff
         console.log(
           `Retrying request to ${url} due to network error, ${retries} retries left`
         );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return this.fetchWithRetry(url, options, retries - 1);
+        const backoffDelay = Math.pow(2, retryCount + 1) * 1000;
+        console.log(
+          `Applying exponential backoff: ${backoffDelay / 1000}s delay`
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        return this.fetchWithRetry(url, options, retries - 1, retryCount + 1);
       }
       throw error;
     } finally {
@@ -145,8 +193,17 @@ class TukuyBooksAPI {
    *
    * @returns {Promise<Object>} - API connection status
    */
-  async testConnection() {
+  async testConnection(retryCount = 0, maxRetries = 3) {
     try {
+      // Handle rate limiting with exponential backoff
+      const delay = retryCount > 0 ? Math.pow(2, retryCount) * 1000 : 0;
+      if (delay > 0) {
+        console.log(
+          `Rate limit encountered. Retrying in ${delay / 1000} seconds...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+
       // Start with query parameter approach which worked in testing
       try {
         const response = await fetch(`${this.baseUrl}?path=health`, {
@@ -157,6 +214,11 @@ class TukuyBooksAPI {
           mode: "cors",
           credentials: "omit", // Avoid sending credentials for CORS requests
         });
+
+        // Handle rate limiting (429 status code)
+        if (response.status === 429 && retryCount < maxRetries) {
+          return this.testConnection(retryCount + 1, maxRetries);
+        }
 
         if (response.ok) {
           const data = await response.json();
@@ -186,6 +248,11 @@ class TukuyBooksAPI {
           credentials: "omit", // Avoid sending credentials for CORS requests
         });
 
+        // Handle rate limiting (429 status code)
+        if (response.status === 429 && retryCount < maxRetries) {
+          return this.testConnection(retryCount + 1, maxRetries);
+        }
+
         if (response.ok) {
           const data = await response.json();
           return {
@@ -194,6 +261,18 @@ class TukuyBooksAPI {
             status: response.status,
             statusText: response.statusText,
             details: data,
+          };
+        }
+
+        // Special handling for rate limiting
+        if (response.status === 429) {
+          return {
+            connected: false,
+            url: this.baseUrl,
+            status: response.status,
+            statusText: response.statusText,
+            error: "Rate limit exceeded. Please wait and try again later.",
+            rateLimited: true,
           };
         }
 

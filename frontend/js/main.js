@@ -777,6 +777,29 @@ async function validateBackendConnection() {
     if (!connectionStatus.connected) {
       console.error("Backend connection failed:", connectionStatus.error);
 
+      // Handle rate limiting specially
+      if (
+        connectionStatus.rateLimited ||
+        connectionStatus.status === 429 ||
+        (connectionStatus.error &&
+          connectionStatus.error.includes("Rate limit"))
+      ) {
+        console.warn(
+          "API rate limit encountered, applying exponential backoff..."
+        );
+        showNotification(
+          "API rate limit reached. Waiting before retrying... This may take a few seconds.",
+          "warning",
+          10000
+        );
+
+        // Wait for 5 seconds before retrying
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        // Try again after waiting
+        return validateBackendConnection();
+      }
+
       // Handle CORS errors specially
       if (
         connectionStatus.error &&

@@ -10,10 +10,41 @@ const { APIError } = require("../utils");
  * Create rate limiters with different configurations
  */
 
+// Health check rate limiter - much more lenient
+const healthCheckLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // limit each IP to 30 requests per minute for health checks
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: true, // Return success even when rate limited for health check endpoints
+    message: "Rate limit reached, but API is operational",
+    warning: "You are sending too many health check requests",
+    timestamp: new Date().toISOString(),
+  },
+  // Simple handler for health check rate limiting
+  handler: (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: "TukuyBooks API is operational, but rate limit reached",
+      timestamp: new Date().toISOString(),
+      warning:
+        "Health check rate limit exceeded, please reduce request frequency",
+    });
+  },
+  // Skip if not a health check endpoint
+  skip: (req) => {
+    return !(
+      req.path.includes("health") ||
+      (req.query && req.query.path === "health")
+    );
+  },
+});
+
 // Standard API rate limiter
 const standardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 150, // increased limit from 100 to 150 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: {
@@ -36,6 +67,12 @@ const standardLimiter = rateLimit({
           limit: res.getHeader("X-RateLimit-Limit"),
         }
       )
+    );
+  },
+  // Skip rate limiting for health endpoints (they use their own limiter)
+  skip: (req) => {
+    return (
+      req.path.includes("health") || (req.query && req.query.path === "health")
     );
   },
 });
@@ -101,6 +138,7 @@ const downloadLimiter = rateLimit({
 
 module.exports = {
   standardLimiter,
+  healthCheckLimiter,
   heavyOperationsLimiter,
   downloadLimiter,
 };
