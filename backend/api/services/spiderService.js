@@ -140,7 +140,12 @@ function getSpiderRunStatus(runId) {
       if (!/^[a-zA-Z0-9_-]+$/.test(spiderId)) {
         throw new Error(`Invalid spider ID: ${spiderId}`);
       }
-      const outputPath = path.join(paths.outputs, `${spiderId}.jl`);
+      const outputPath = path.resolve(paths.outputs, `${spiderId}.jl`);
+
+      // Ensure the outputPath is within the allowed root directory
+      if (!outputPath.startsWith(path.resolve(paths.outputs))) {
+        throw new Error(`Access to path outside of allowed directory: ${outputPath}`);
+      }
 
       // Check if output file exists and get its stats
       const stats = fs.statSync(outputPath, { throwIfNoEntry: false });
