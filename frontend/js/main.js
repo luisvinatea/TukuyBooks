@@ -776,6 +776,29 @@ async function validateBackendConnection() {
 
     if (!connectionStatus.connected) {
       console.error("Backend connection failed:", connectionStatus.error);
+
+      // Handle CORS errors specially
+      if (
+        connectionStatus.error &&
+        (connectionStatus.error.includes("CORS") ||
+          connectionStatus.error.includes("blocked") ||
+          connectionStatus.error.includes("fetch"))
+      ) {
+        showNotification(
+          "CORS policy blocked API access. Using alternative connection method...",
+          "warning"
+        );
+
+        // Try to get spiders using the query parameter approach as a fallback
+        try {
+          await api.getSpiders();
+          console.log("Backend connection established using fallback method");
+          return true;
+        } catch (fallbackError) {
+          console.error("Fallback connection also failed:", fallbackError);
+        }
+      }
+
       showNotification(
         `Cannot connect to API at ${connectionStatus.url}. Please check your connection and try again.`,
         "error"

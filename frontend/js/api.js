@@ -42,6 +42,23 @@ class TukuyBooksAPI {
   }
 
   /**
+   * Helper method to convert endpoint paths to query parameter format if needed
+   * This helps work around CORS issues with some API deployments
+   *
+   * @param {string} url - The original URL
+   * @returns {string} - The URL potentially converted to use query parameters
+   */
+  getApiUrl(endpoint) {
+    // If this is a health check, prefer the query parameter format that works
+    if (endpoint === "health") {
+      return `${this.baseUrl}?path=health`;
+    }
+
+    // For other endpoints, try the direct path first
+    return `${this.baseUrl}/${endpoint}`;
+  }
+
+  /**
    * Show the loading indicator
    */
   showLoading() {
@@ -71,14 +88,22 @@ class TukuyBooksAPI {
    * @param {Object} options - Fetch options
    * @param {number} retries - Number of retries left
    * @returns {Promise<Object>} - Response data
-   */
-  async fetchWithRetry(url, options = {}, retries = this.maxRetries) {
+   */ async fetchWithRetry(url, options = {}, retries = this.maxRetries) {
     this.showLoading();
 
     // Ensure consistent CORS settings for all requests
     if (!options.headers) options.headers = {};
+
+    // Avoid problematic headers that may trigger preflight checks
+    delete options.headers["Cache-Control"];
+
     options.mode = "cors";
     options.credentials = "omit"; // Avoid CORS issues with credentials
+
+    // Try using query parameter approach for API endpoints
+    if (url.includes("/health") && !url.includes("?path=")) {
+      url = url.replace("/health", "?path=health");
+    }
 
     try {
       const response = await fetch(url, options);
@@ -122,9 +147,9 @@ class TukuyBooksAPI {
    */
   async testConnection() {
     try {
-      // First try the direct health endpoint
+      // Start with query parameter approach which worked in testing
       try {
-        const response = await fetch(`${this.baseUrl}/health`, {
+        const response = await fetch(`${this.baseUrl}?path=health`, {
           method: "GET",
           headers: {
             Accept: "application/json",
@@ -145,14 +170,14 @@ class TukuyBooksAPI {
         }
       } catch (primaryError) {
         console.warn(
-          "Primary health check failed, trying fallback",
+          "Query parameter health check failed, trying direct endpoint",
           primaryError
         );
       }
 
-      // If direct health check fails, try with query parameter (workaround for query param issue)
+      // If query parameter approach fails, try the direct health endpoint
       try {
-        const response = await fetch(`${this.baseUrl}?path=health`, {
+        const response = await fetch(`${this.baseUrl}/health`, {
           method: "GET",
           headers: {
             Accept: "application/json",
@@ -202,10 +227,27 @@ class TukuyBooksAPI {
    */
   async getSpiders() {
     try {
-      // Use clean URL without query parameters
-      const url = `${this.baseUrl}/spiders`;
-      const data = await this.fetchWithRetry(url);
-      return data.data.spiders;
+      // Try with the query parameter approach if needed
+      let url = this.getApiUrl("spiders");
+
+      try {
+        const data = await this.fetchWithRetry(url);
+        return data.data.spiders;
+      } catch (error) {
+        // If direct approach fails, try query parameter fallback
+        if (
+          error.message &&
+          (error.message.includes("CORS") ||
+            error.message.includes("fetch") ||
+            error.message.includes("network"))
+        ) {
+          url = `${this.baseUrl}?path=spiders`;
+          console.log("Trying alternative URL format:", url);
+          const data = await this.fetchWithRetry(url);
+          return data.data.spiders;
+        }
+        throw error;
+      }
     } catch (error) {
       console.error("Error getting spiders:", error);
       throw error;
@@ -219,12 +261,36 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status of the spider run
    */
   async runSpider(spiderId) {
-    return this.fetchWithRetry(`${this.baseUrl}/spiders/${spiderId}/run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      // Try direct endpoint first
+      return await this.fetchWithRetry(
+        `${this.baseUrl}/spiders/${spiderId}/run`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (error) {
+      // If direct approach fails, try query parameter fallback
+      if (
+        error.message &&
+        (error.message.includes("CORS") ||
+          error.message.includes("fetch") ||
+          error.message.includes("network"))
+      ) {
+        const url = `${this.baseUrl}?path=spiders/${spiderId}/run`;
+        console.log("Trying alternative URL format:", url);
+        return await this.fetchWithRetry(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      }
+      throw error;
+    }
   }
 
   /**
@@ -235,9 +301,25 @@ class TukuyBooksAPI {
    * @returns {Promise<Object>} - Status information
    */
   async getSpiderStatus(spiderId, runId) {
-    return this.fetchWithRetry(
-      `${this.baseUrl}/spiders/${spiderId}/status?runId=${runId}`
-    );
+    try {
+      // Try direct endpoint first
+      return await this.fetchWithRetry(
+        `${this.baseUrl}/spiders/${spiderId}/status?runId=${runId}`
+      );
+    } catch (error) {
+      // If direct approach fails, try query parameter fallback
+      if (
+        error.message &&
+        (error.message.includes("CORS") ||
+          error.message.includes("fetch") ||
+          error.message.includes("network"))
+      ) {
+        const url = `${this.baseUrl}?path=spiders/${spiderId}/status&runId=${runId}`;
+        console.log("Trying alternative URL format:", url);
+        return await this.fetchWithRetry(url);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -249,17 +331,37 @@ class TukuyBooksAPI {
    */
   async createEbook(spiderId, format = "epub") {
     try {
-      const data = await this.fetchWithRetry(
-        `${this.baseUrl}/spiders/${spiderId}/ebook`,
-        {
+      const url = `${this.baseUrl}/spiders/${spiderId}/ebook`;
+      try {
+        const data = await this.fetchWithRetry(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ format }),
+        });
+        return data;
+      } catch (fetchError) {
+        // If direct approach fails, try query parameter fallback
+        if (
+          fetchError.message &&
+          (fetchError.message.includes("CORS") ||
+            fetchError.message.includes("fetch") ||
+            fetchError.message.includes("network"))
+        ) {
+          const fallbackUrl = `${this.baseUrl}?path=spiders/${spiderId}/ebook`;
+          console.log("Trying alternative URL format:", fallbackUrl);
+          const data = await this.fetchWithRetry(fallbackUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ format }),
+          });
+          return data;
         }
-      );
-      return data;
+        throw fetchError;
+      }
     } catch (error) {
       console.error(`Error creating ${format} for spider ${spiderId}:`, error);
       throw error;
@@ -273,8 +375,24 @@ class TukuyBooksAPI {
    */
   async getAvailableEbooks() {
     try {
-      const data = await this.fetchWithRetry(`${this.baseUrl}/ebooks`);
-      return data.data.ebooks;
+      try {
+        const data = await this.fetchWithRetry(`${this.baseUrl}/ebooks`);
+        return data.data.ebooks;
+      } catch (fetchError) {
+        // If direct approach fails, try query parameter fallback
+        if (
+          fetchError.message &&
+          (fetchError.message.includes("CORS") ||
+            fetchError.message.includes("fetch") ||
+            fetchError.message.includes("network"))
+        ) {
+          const fallbackUrl = `${this.baseUrl}?path=ebooks`;
+          console.log("Trying alternative URL format:", fallbackUrl);
+          const data = await this.fetchWithRetry(fallbackUrl);
+          return data.data.ebooks;
+        }
+        throw fetchError;
+      }
     } catch (error) {
       console.error("Error getting available ebooks:", error);
       throw error;
