@@ -167,6 +167,15 @@ class EbookMaker:
             chapters (list): List of chapter dictionaries.
         """
         toc = []
+
+        # Simple flat TOC as a safe fallback if there aren't enough chapters for nested structure
+        if len(chapters) <= 5:
+            for epub_chap in epub_chapters:
+                toc.append(epub_chap)
+            book.toc = toc
+            return
+
+        # Build nested TOC structure for larger documents
         current_l1 = None
         current_l1_item = None
         current_l2 = []
@@ -175,13 +184,17 @@ class EbookMaker:
             level = chap.get("level", 1)
 
             if level == 1:
+                # If we have a previous L1 item with L2 items, finalize it
                 if current_l1_item and current_l2:
                     current_l1_item.append(current_l2)
+
+                # Start a new L1 section
                 current_l1 = epub_chap
                 current_l1_item = [epub_chap]
                 current_l2 = []
                 toc.append(current_l1_item)
             elif level == 2 and current_l1:
+                # Add to the current L2 collection
                 current_l2.append(epub_chap)
             else:  # Level 3 or no parent
                 if not current_l1:
@@ -194,7 +207,7 @@ class EbookMaker:
                     else:
                         current_l1_item.append(epub_chap)
 
-        # Add any remaining L2 items
+        # Add any remaining L2 items to their parent L1
         if current_l1_item and current_l2:
             current_l1_item.append(current_l2)
 
