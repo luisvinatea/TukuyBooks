@@ -264,7 +264,6 @@ class PythonDocsEbookMaker:
 
             # Improve admonitions (notes, warnings)
             for admonition in main_content.select("div.admonition"):
-                adm_class = admonition.get("class", [])
                 title_elem = admonition.select_one("p.admonition-title")
 
                 # Ensure admonitions have clear styling
@@ -462,40 +461,7 @@ class PythonDocsEbookMaker:
             )
             book.add_item(nav_css)
 
-            # Create hierarchical TOC for Python documentation
-            # Group by priority to create structure
-            toc_items = []
-
-            # Helper function to create TOC structure
-            def add_to_toc(items, level=1, parent_title=None):
-                if not items:
-                    return []
-
-                result = []
-                current_parent = None
-                current_parent_items = []
-
-                for item in items:
-                    item_level = item.get("level", 1)
-                    if item_level == level:
-                        if current_parent and current_parent_items:
-                            result.append(
-                                (current_parent, current_parent_items)
-                            )
-                            current_parent_items = []
-
-                        current_parent = item
-                        current_parent_items = []
-                    elif item_level > level and current_parent:
-                        current_parent_items.append(item)
-
-                if current_parent and current_parent_items:
-                    result.append((current_parent, current_parent_items))
-
-                return result
-
             # Simply add all chapters to TOC for now
-            # In a future version, implement hierarchical TOC based on document structure
             book.toc = epub_chapters
 
             # Add navigation files
