@@ -294,6 +294,7 @@ if __name__ == "__main__":
         maker.create_epub(output_filename)
     elif spider_id == "mdn_docs":
         # Import here to avoid circular imports
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from mdn_ebook_maker import MDNEbookMaker
 
         maker = MDNEbookMaker()

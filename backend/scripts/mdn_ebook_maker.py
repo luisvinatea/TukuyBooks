@@ -3,8 +3,15 @@ This module extends the EbookMaker class to provide specific processing
 for MDN JavaScript documentation.
 """
 
-from .make_ebook import EbookMaker
-from bs4 import Tag
+import sys
+import os
+import logging
+from bs4 import BeautifulSoup, Tag
+
+# Add absolute import for EbookMaker
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import make_ebook
+from make_ebook import EbookMaker
 
 
 class MDNEbookMaker(EbookMaker):
