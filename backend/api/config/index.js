@@ -46,6 +46,7 @@ const corsConfig = {
     "Authorization",
     "X-Requested-With",
     "Accept",
+    "Cache-Control", // Add Cache-Control as an allowed header
   ],
   credentials: true,
   maxAge: 86400, // 24 hours in seconds

@@ -19,6 +19,15 @@ router.get("/_vercel/health", (req, res) => {
 
 // Public health check endpoint for client applications
 router.get("/health", (req, res) => {
+  // Ensure CORS headers are set for health endpoint specifically
+  res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"
+  );
+  res.set("Access-Control-Allow-Credentials", "true");
+
   res.status(200).json({
     success: true,
     message: "TukuyBooks API is operational",
@@ -35,6 +44,15 @@ router.get("*", (req, res, next) => {
     req.path.includes("health") ||
     (req.query && req.query.path === "health")
   ) {
+    // Ensure CORS headers are set for query-based health endpoint
+    res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"
+    );
+    res.set("Access-Control-Allow-Credentials", "true");
+
     return res.status(200).json({
       success: true,
       message: "TukuyBooks API is operational (query param handler)",

@@ -28,7 +28,23 @@ const PORT = config.server.port;
 
 // Configure middleware
 app.use(express.json());
+
+// Explicit CORS pre-flight handling
+app.options("*", cors(config.cors)); // Handle OPTIONS pre-flight requests
 app.use(cors(config.cors));
+
+// Add CORS headers as fallback for any request
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
 app.use(createRequestLogger()); // Use our custom request logger
 app.use(createRequestDebugger()); // Add detailed request debugging
 app.use(express.urlencoded({ extended: true }));
