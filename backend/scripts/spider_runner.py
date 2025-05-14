@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 spider_runner.py - A utility script to run spiders programmatically
-This script allows the Node.js API to execute spiders and track their progress
 """
 
 import sys

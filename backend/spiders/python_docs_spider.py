@@ -32,10 +32,20 @@ class PythonDocsSpider(scrapy.Spider):
     allowed_domains = ["docs.python.org"]
     start_urls = ["https://docs.python.org/3/"]
 
+    # Command line options
+    custom_settings = {
+        "DEPTH_LIMIT": 5,  # Default depth limit as a backup
+        "DOWNLOAD_DELAY": 0.25,  # Be nice to the docs.python.org server - 4 requests per second max
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.chapters = []
         self.visited_urls = {}
+        # Maximum depth to crawl (starting from level 1)
+        self.max_depth = kwargs.get("max_depth", 5)  # Default to 5 levels deep
+        self.logger.info(f"Max crawl depth set to {self.max_depth}")
+
         # Change path to use backend structure
         outputs_path = os.path.join("backend", "outputs", "python_docs.jl")
         if os.path.exists(outputs_path):
@@ -161,12 +171,34 @@ class PythonDocsSpider(scrapy.Spider):
             return None
         # Extract and store internal links
         internal_links = {}
-        for link in main_content.find_all("a", class_="reference internal"):
+
+        # Process links for both extraction and for recursive crawling
+        content_links = []
+        for link in main_content.find_all("a"):
             if isinstance(link, Tag) and "href" in link.attrs:
                 href = link.attrs["href"]
                 text = link.get_text(strip=True)
-                if text and href:
+                # Store for internal linking
+                if (
+                    text
+                    and href
+                    and (
+                        "class" in link.attrs
+                        and "reference internal" in link.attrs["class"]
+                    )
+                ):
                     internal_links[href] = text
+
+                # Add to potential crawl list if it's a documentation link
+                if (
+                    href
+                    and self._is_valid_link(href)
+                    and not href.startswith(
+                        ("http://", "https://", "mailto:", "#")
+                    )
+                ):
+                    content_links.append((href, text))
+
         # Process content for better readability
         self._process_content(main_content)
         content = str(main_content)
@@ -189,6 +221,53 @@ class PythonDocsSpider(scrapy.Spider):
             "priority": response.meta.get("priority", 500),
             "internal_links": internal_links,
         }
+
+        # Now yield requests for content links we want to follow
+        # We want to follow links that might be section pages or module documentation
+        current_level = response.meta.get("level", 1)
+
+        # Sort links by importance before crawling to prioritize important content
+        sorted_links = []
+        for href, link_text in content_links:
+            priority = self.get_priority(link_text)
+            sorted_links.append((href, link_text, priority))
+
+        # Sort by priority (lower number = higher priority)
+        sorted_links.sort(key=lambda x: x[2])
+
+        # Crawl sub-pages with incremented level, starting with highest priority
+        for href, link_text, _ in sorted_links:
+            full_url = urljoin(response.url, href)
+            if full_url not in self.visited_urls:
+                # Determine if it's a subsection or module by checking the href and text patterns
+                is_subsection = (
+                    href.endswith(".html") and not href.startswith("#")
+                ) or (href.endswith("/") and not href.startswith("#"))
+
+                # Only follow sub-links that look like documentation pages
+                if is_subsection and current_level < self.max_depth:
+                    priority = self.get_priority(link_text)
+                    # Set the parent to the current page
+                    metadata = {
+                        "title": link_text,
+                        "level": current_level
+                        + 1,  # Increment level for child pages
+                        "priority": priority,
+                        "parent": response.url,  # Set parent-child relationship
+                    }
+                    self.logger.info(
+                        f"Following sub-link: {full_url} (title: {link_text}) at depth {current_level + 1}/{self.max_depth}"
+                    )
+                    yield scrapy.Request(
+                        url=full_url,
+                        callback=self.parse_content,
+                        meta=metadata,
+                    )
+                elif is_subsection and current_level >= self.max_depth:
+                    self.logger.info(
+                        f"Not following {full_url} due to max depth limit ({current_level} >= {self.max_depth})"
+                    )
+
         return item
 
     def _process_content(self, main_content):
@@ -225,12 +304,62 @@ class PythonDocsSpider(scrapy.Spider):
         Returns:
             bool: True if the URL is valid, False otherwise.
         """
+        # Skip non-document links
         if url.startswith(("mailto:", "javascript:", "#")):
             return False
-        return not any(
+
+        # Skip indices, search pages, and static resources
+        if any(
             x in url
-            for x in ["genindex", "search", "whatsnew", "_sources", "_static"]
-        )
+            for x in [
+                "genindex",
+                "search",
+                "_sources",
+                "_static",
+                "c-api",
+                "download",
+                "bugs",
+                "index-all",
+            ]
+        ):
+            return False
+
+        # Skip what's new pages which aren't relevant for offline documentation
+        if "whatsnew" in url:
+            return False
+
+        # Skip pages that might lead to external sites or are not relevant for documentation
+        if any(
+            url.endswith(x)
+            for x in [
+                ".tar.gz",
+                ".zip",
+                ".exe",
+                ".msi",
+                ".pdf",
+                ".png",
+                ".jpg",
+                ".jpeg",
+                ".gif",
+                ".svg",
+            ]
+        ):
+            return False
+
+        # For Python's documentation structure, we want to focus on HTML pages and directories
+        if (
+            url.endswith(".html")
+            or url.endswith("/")
+            or
+            # Handle links like "library/sys.html" which are relative
+            "/" in url
+            or
+            # Handle module paths which may not have .html extension explicitly
+            "." not in url  # Likely a directory or no-extension page
+        ):
+            return True
+
+        return False
 
     def get_priority(self, title):
         """Assign priority based on the title.
@@ -282,12 +411,38 @@ class PythonDocsSpider(scrapy.Spider):
             ]
         ):
             return 30
-        # Standard library
+        # Standard library - prioritize by importance of module
         elif "library" in title:
             return 40
+        # Important standard library modules
+        elif any(
+            x == title.lower()
+            for x in [
+                "sys",
+                "os",
+                "io",
+                "datetime",
+                "collections",
+                "json",
+                "re",
+                "pathlib",
+                "time",
+                "logging",
+                "argparse",
+                "unittest",
+                "threading",
+                "multiprocessing",
+            ]
+        ):
+            # These are commonly used modules, so give them higher priority
+            return 35
         # Reference material
         elif "reference" in title:
             return 50
+        # Module documentation (likely standard library or builtin)
+        elif title.islower() and len(title.split()) <= 2 and "." not in title:
+            # This is likely a module name - high priority but after main sections
+            return 45
         # Low priority items
         elif any(
             x in title
