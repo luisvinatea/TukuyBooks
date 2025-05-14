@@ -7,7 +7,21 @@ const fs = require("fs").promises;
 const { PythonShell } = require("python-shell");
 const { v4: uuidv4 } = require("uuid");
 const { spider: spiderConfig, paths } = require("../config");
-const { ensureDirectoryExists, fileExists } = require("../utils");
+const { ensureDirectoryExists, fileExists, APIError } = require("../utils");
+
+/**
+ * Format a file size in bytes to a human-readable string
+ *
+ * @param {number} bytes - The size in bytes
+ * @returns {string} - Human readable format (e.g., "2.5 MB")
+ */
+function formatFileSize(bytes) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
 
 // Store for tracking spider runs
 const spiderRunStore = new Map();
@@ -48,7 +62,12 @@ async function runSpider(spiderId) {
   // Check if the spider exists
   const spider = await getSpiderById(spiderId);
   if (!spider) {
-    throw new Error(`Spider ${spiderId} not found`);
+    throw new APIError(
+      `Spider ${spiderId} not found`,
+      404,
+      "SPIDER_NOT_FOUND",
+      { spiderId }
+    );
   }
 
   // Generate a unique ID for this run
@@ -107,7 +126,41 @@ async function runSpider(spiderId) {
  * @returns {Object|null} - The run status or null if not found
  */
 function getSpiderRunStatus(runId) {
-  return spiderRunStore.get(runId) || null;
+  const status = spiderRunStore.get(runId);
+
+  if (!status) {
+    return null;
+  }
+
+  // If the status is "running", check if we can get more info from the output file
+  if (status.status === "running") {
+    // Try to get progress information from the spider's output
+    try {
+      const spiderId = status.spiderId;
+      const outputPath = path.join(paths.outputs, `${spiderId}.jl`);
+
+      // Check if output file exists and get its stats
+      const stats = fs.statSync(outputPath, { throwIfNoEntry: false });
+      if (stats) {
+        // Update the status with file information
+        status.results = {
+          file_size: stats.size,
+          file_size_human: formatFileSize(stats.size),
+          last_updated: stats.mtime,
+        };
+
+        // Calculate approximate progress (simple heuristic: 50% once we have some output)
+        if (stats.size > 0) {
+          status.progress = Math.min(50 + Math.floor(stats.size / 1024), 95);
+        }
+      }
+    } catch (error) {
+      console.log("Could not get additional status info:", error.message);
+      // Non-critical error, just continue with what we have
+    }
+  }
+
+  return status;
 }
 
 /**
@@ -122,14 +175,22 @@ async function generateEbook(spiderId, format = "epub", title = null) {
   // Check if the spider exists
   const spider = await getSpiderById(spiderId);
   if (!spider) {
-    throw new Error(`Spider ${spiderId} not found`);
+    throw new APIError(
+      `Spider ${spiderId} not found`,
+      404,
+      "SPIDER_NOT_FOUND",
+      { spiderId }
+    );
   }
 
   // Check if the spider data file exists
   const dataFilePath = path.join(paths.outputs, `${spiderId}.jl`);
   if (!(await fileExists(dataFilePath))) {
-    throw new Error(
-      `No data found for spider ${spiderId}. Run the spider first.`
+    throw new APIError(
+      `No data found for spider ${spiderId}. Run the spider first.`,
+      400,
+      "SPIDER_DATA_NOT_FOUND",
+      { spiderId, dataFilePath }
     );
   }
 

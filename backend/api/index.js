@@ -11,7 +11,11 @@ const fs = require("fs");
 
 // Import configurations
 const config = require("./config");
-const { errorHandler } = require("./middleware/errorMiddleware");
+const {
+  errorHandler,
+  notFoundHandler,
+} = require("./middleware/errorMiddleware");
+const { standardLimiter } = require("./middleware/rateLimitMiddleware");
 const routes = require("./routes");
 const { ensureDirectoryExists } = require("./utils");
 
@@ -24,6 +28,9 @@ app.use(express.json());
 app.use(cors(config.cors));
 app.use(morgan(config.isProduction ? "combined" : "dev"));
 app.use(express.urlencoded({ extended: true }));
+
+// Apply rate limiting to all requests
+app.use(standardLimiter);
 
 // Ensure necessary directories exist
 ensureDirectoryExists(config.paths.outputs);

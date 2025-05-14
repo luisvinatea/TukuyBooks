@@ -9,6 +9,14 @@ const apiDoc = {
     title: "TukuyBooks API",
     version: "1.0.0",
     description: "API for managing documentation spiders and ebook generation",
+    contact: {
+      name: "TukuyBooks Support",
+      url: "https://github.com/luisvinatea/TukuyBooks/issues",
+    },
+    license: {
+      name: "MIT",
+      url: "https://opensource.org/licenses/MIT",
+    },
   },
   servers: [
     {
@@ -370,6 +378,74 @@ const apiDoc = {
             description: "Server error",
           },
         },
+      },
+    },
+  },
+
+  components: {
+    schemas: {
+      // Standard API response format
+      ApiResponse: {
+        type: "object",
+        properties: {
+          success: {
+            type: "boolean",
+            description: "Indicates if the request was successful",
+          },
+          message: {
+            type: "string",
+            description: "Human-readable message about the result",
+          },
+          timestamp: {
+            type: "string",
+            format: "date-time",
+            description: "ISO timestamp of when the response was generated",
+          },
+          data: {
+            type: "object",
+            description: "Response payload data (only present on success)",
+          },
+        },
+        required: ["success", "message", "timestamp"],
+      },
+
+      // Error response format
+      ErrorResponse: {
+        type: "object",
+        properties: {
+          success: {
+            type: "boolean",
+            description: "Always false for errors",
+            example: false,
+          },
+          message: {
+            type: "string",
+            description: "Human-readable error message",
+            example: "Resource not found",
+          },
+          timestamp: {
+            type: "string",
+            format: "date-time",
+            description: "ISO timestamp of when the error occurred",
+            example: "2025-05-13T14:35:42.123Z",
+          },
+          error: {
+            type: "object",
+            properties: {
+              code: {
+                type: "string",
+                description: "Error code for programmatic handling",
+                example: "RESOURCE_NOT_FOUND",
+              },
+              details: {
+                type: "object",
+                description: "Additional context about the error",
+                example: { resourceId: "123", resource: "spider" },
+              },
+            },
+          },
+        },
+        required: ["success", "message", "timestamp", "error"],
       },
     },
   },

@@ -30,7 +30,7 @@ function ensureDirectoryExists(dirPath) {
  * @param {boolean} success - Whether the operation was successful
  * @param {string} message - A message describing the result
  * @param {object} data - Any data to include in the response
- * @param {Error} error - An error object, if applicable
+ * @param {Error|APIError} error - An error object, if applicable
  * @returns {object} - A standardized response object
  */
 function createResponse(success, message, data = null, error = null) {
@@ -45,13 +45,27 @@ function createResponse(success, message, data = null, error = null) {
   }
 
   if (error && !success) {
-    response.error =
-      process.env.NODE_ENV === "production"
-        ? error.message
-        : {
-            message: error.message,
-            stack: error.stack,
-          };
+    // Handle APIError objects vs standard errors
+    if (error instanceof APIError) {
+      response.error = {
+        code: error.code || "UNKNOWN_ERROR",
+        message: error.message,
+        ...(error.details && { details: error.details }),
+      };
+    } else {
+      response.error =
+        process.env.NODE_ENV === "production"
+          ? {
+              code: "INTERNAL_ERROR",
+              message: "An internal server error occurred",
+            }
+          : {
+              code: error.code || "UNKNOWN_ERROR",
+              message: error.message || "Unknown error",
+              stack: error.stack,
+              ...(error.details && { details: error.details }),
+            };
+    }
   }
 
   return response;

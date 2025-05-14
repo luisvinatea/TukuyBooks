@@ -6,7 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const sanitizeFilename = require("sanitize-filename");
 const spiderService = require("../services/spiderService");
-const { createResponse, asyncHandler } = require("../utils");
+const { createResponse, asyncHandler, APIError } = require("../utils");
 const { paths } = require("../config");
 
 /**
@@ -56,19 +56,34 @@ const runSpider = asyncHandler(async (req, res) => {
  */
 const getSpiderStatus = asyncHandler(async (req, res) => {
   const runId = req.query.runId;
+  const spiderId = req.params.id;
 
   if (!runId) {
-    return res
-      .status(400)
-      .json(createResponse(false, "Missing required parameter: runId"));
+    throw new APIError(
+      "Missing required parameter: runId",
+      400,
+      "MISSING_PARAMETER",
+      { parameter: "runId" }
+    );
   }
 
   const status = spiderService.getSpiderRunStatus(runId);
 
   if (!status) {
-    return res
-      .status(404)
-      .json(createResponse(false, `Run ID ${runId} not found`));
+    throw new APIError(`Run ID ${runId} not found`, 404, "RUN_NOT_FOUND", {
+      runId,
+      spiderId,
+    });
+  }
+
+  // Verify that the status belongs to the requested spider
+  if (status.spiderId !== spiderId) {
+    throw new APIError(
+      `Run ID ${runId} does not belong to spider ${spiderId}`,
+      400,
+      "INVALID_RUN_ID",
+      { runId, requestedSpiderId: spiderId, actualSpiderId: status.spiderId }
+    );
   }
 
   res.json(createResponse(true, "Spider status retrieved", { status }));
@@ -79,21 +94,60 @@ const getSpiderStatus = asyncHandler(async (req, res) => {
  */
 const generateEbook = asyncHandler(async (req, res) => {
   const spiderId = req.params.id;
-  const { format = "epub", title } = req.body;
+  const { format = "epub", title, runId } = req.body;
+
+  // Validate format parameter
+  const validFormats = ["epub", "pdf", "mobi"];
+  if (!validFormats.includes(format)) {
+    throw new APIError(
+      `Invalid format: ${format}. Supported formats are: ${validFormats.join(
+        ", "
+      )}`,
+      400,
+      "INVALID_FORMAT",
+      { requestedFormat: format, validFormats }
+    );
+  }
+
+  // If runId is provided, verify that the run exists and is completed
+  if (runId) {
+    const runStatus = spiderService.getSpiderRunStatus(runId);
+    if (!runStatus) {
+      throw new APIError(`Run ID ${runId} not found`, 404, "RUN_NOT_FOUND", {
+        runId,
+        spiderId,
+      });
+    }
+
+    if (runStatus.spiderId !== spiderId) {
+      throw new APIError(
+        `Run ID ${runId} does not belong to spider ${spiderId}`,
+        400,
+        "INVALID_RUN_ID",
+        {
+          runId,
+          requestedSpiderId: spiderId,
+          actualSpiderId: runStatus.spiderId,
+        }
+      );
+    }
+
+    if (runStatus.status !== "completed") {
+      throw new APIError(
+        `Cannot generate ebook: spider run is not completed (status: ${runStatus.status})`,
+        400,
+        "INCOMPLETE_RUN",
+        { runId, status: runStatus.status }
+      );
+    }
+  }
 
   try {
     const result = await spiderService.generateEbook(spiderId, format, title);
     res.json(createResponse(true, "E-book generated successfully", result));
   } catch (error) {
-    const statusCode = error.message.includes("not found")
-      ? 404
-      : error.message.includes("Run the spider first")
-      ? 400
-      : 500;
-
-    res
-      .status(statusCode)
-      .json(createResponse(false, error.message, null, error));
+    // APIErrors will be caught by the errorHandler middleware
+    throw error;
   }
 });
 
@@ -115,22 +169,24 @@ const getEbooks = asyncHandler(async (req, res) => {
  * Download a specific ebook
  */
 const downloadFile = asyncHandler(async (req, res) => {
-  const sanitizeFilename = require("sanitize-filename");
   const filename = sanitizeFilename(req.params.filename);
   const filePath = path.resolve(paths.outputs, filename);
 
   // Ensure the filePath is within the outputs directory
   if (!filePath.startsWith(path.resolve(paths.outputs))) {
-    return res
-      .status(403)
-      .json(createResponse(false, "Access to the requested file is forbidden"));
+    throw new APIError(
+      "Access to the requested file is forbidden",
+      403,
+      "FORBIDDEN_ACCESS",
+      { requestedPath: filename }
+    );
   }
 
   // Check if file exists
   if (!fs.existsSync(filePath)) {
-    return res
-      .status(404)
-      .json(createResponse(false, `File ${filename} not found`));
+    throw new APIError(`File ${filename} not found`, 404, "FILE_NOT_FOUND", {
+      requestedFile: filename,
+    });
   }
 
   // Send the file for download

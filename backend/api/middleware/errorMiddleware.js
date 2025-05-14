@@ -12,7 +12,9 @@ function errorHandler(err, req, res, next) {
 
   // Determine status code based on error type
   let statusCode = 500;
+
   if (err.statusCode) {
+    // Use the statusCode from APIError or other custom error types
     statusCode = err.statusCode;
   } else if (err.name === "ValidationError") {
     statusCode = 400;
@@ -22,7 +24,27 @@ function errorHandler(err, req, res, next) {
     statusCode = 403;
   } else if (err.name === "NotFoundError") {
     statusCode = 404;
+  } else if (err.name === "SyntaxError" && err.type === "entity.parse.failed") {
+    // Handle JSON parse errors
+    statusCode = 400;
+    err.message = "Invalid JSON in request body";
+    err.code = "INVALID_JSON";
   }
+
+  // Add request ID for tracking (if configured)
+  const requestId = req.id || req.headers["x-request-id"] || "unknown";
+
+  // Log the error with request details
+  console.error(
+    `[${requestId}] [${req.method}] ${req.path} - Status ${statusCode}:`,
+    {
+      error: err.message,
+      stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
+      body: req.body ? JSON.stringify(req.body).substring(0, 200) : undefined,
+      params: req.params,
+      query: req.query,
+    }
+  );
 
   // Create standardized error response
   const response = createResponse(
@@ -32,6 +54,7 @@ function errorHandler(err, req, res, next) {
     err
   );
 
+  // Send response
   res.status(statusCode).json(response);
 }
 
