@@ -156,6 +156,8 @@ class EbookMaker:
         """
         for idx, chap in enumerate(chapters):
             soup = BeautifulSoup(chap["content"], "html.parser")
+
+            # First process internal references
             for element in soup.find_all("a", class_="reference internal"):
                 if not isinstance(element, Tag):
                     continue
@@ -168,7 +170,42 @@ class EbookMaker:
                 )
                 if new_href:
                     element["href"] = new_href
-            epub_chapters[idx].content = str(soup)
+
+            # Process any other links that might be internal
+            for element in soup.find_all("a", href=True):
+                if (
+                    "class" in element.attrs
+                    and "reference internal" in element["class"]
+                ):
+                    continue  # Already processed
+
+                raw_href = element.attrs.get("href", "")
+                new_href = self.rewrite_href(
+                    raw_href,
+                    url_to_filename,
+                    chapters,
+                    chap.get("internal_links", {}),
+                )
+                if new_href:
+                    element["href"] = new_href
+
+            # Apply custom content processing if needed
+            self._process_content(soup)
+
+            # Make sure we're setting valid XHTML content for the epub
+            content = f"""<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+  <head>
+    <title>{chap["title"]}</title>
+  </head>
+  <body>
+    {str(soup)}
+  </body>
+</html>"""
+
+            # Set the properly formatted content to the epub chapter
+            epub_chapters[idx].content = content
 
     def add_toc(self, book, epub_chapters, chapters):
         """Add table of contents to the book.
@@ -185,7 +222,55 @@ class EbookMaker:
 
         book.toc = toc
 
-        self.logger.info(f"Created simple TOC with {len(toc)} entries")
+        # Add default NCX and Navigation files
+        book.add_item(epub.EpubNcx())
+        book.add_item(epub.EpubNav())
+
+        # Define CSS
+        style = """
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            margin: 2em;
+        }
+        h1, h2, h3, h4 {
+            color: #333;
+            margin-top: 1.5em;
+        }
+        pre, code {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 0.2em;
+            font-family: monospace;
+        }
+        pre {
+            padding: 0.5em;
+            overflow-x: auto;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        """
+
+        nav_css = epub.EpubItem(
+            uid="style_nav",
+            file_name="style/nav.css",
+            media_type="text/css",
+            content=style,
+        )
+        book.add_item(nav_css)
+
+        # Create spine
+        book.spine = ["nav"] + epub_chapters
+
+        self.logger.info(
+            f"Created TOC with {len(toc)} entries, added NCX and Nav files"
+        )
 
     def create_epub(self, output_filename=None):
         """Create an EPUB file from scraped data.
