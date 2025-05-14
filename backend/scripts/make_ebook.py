@@ -277,6 +277,78 @@ class PythonDocsEbookMaker(EbookMaker):
         }
 
 
+class MDNEbookMaker(EbookMaker):
+    """Class for creating ebooks from MDN JavaScript documentation."""
+
+    def __init__(
+        self,
+        spider_id="mdn_docs",
+        title="MDN JavaScript Documentation",
+        author="Mozilla Contributors",
+        language="en",
+    ):
+        """Initialize MDNEbookMaker with metadata."""
+        super().__init__(spider_id, title, author, language)
+
+    def _process_content(self, main_content):
+        """Process HTML content for better readability in eBook format."""
+        # First apply base processing
+        super()._process_content(main_content)
+
+        if not isinstance(main_content, Tag):
+            return
+
+        # Remove elements that don't work well in ebooks
+        selectors_to_remove = [
+            ".newsletter-box",
+            ".metadata",
+            ".document-toc-container",
+            ".metadata-button-container",
+            ".top-navigation-container",
+            ".page-footer-container",
+            ".sidebar-container",
+            "nav.breadcrumbs-container",
+            "nav.sidebar",
+            "aside.metadata",
+            "aside.quick-links",
+            ".on-github",
+            ".translationInProgress",
+            ".notecard.deprecated",
+            ".notecard.warning",
+            ".visually-hidden",
+            ".hidden",
+            "iframe",
+            "script",
+            ".interactive-example",
+        ]
+
+        for selector in selectors_to_remove:
+            for element in main_content.select(selector):
+                if element:
+                    element.extract()
+
+        # Fix code blocks - make sure they render well in ebooks
+        for pre in main_content.find_all("pre"):
+            if not pre.get("class"):
+                pre["class"] = "code"
+
+        # Turn note/warning boxes into formatted sections with clear titles
+        for note in main_content.select(".notecard, .note, .warning"):
+            note_type = "Note"
+            note_class = note.get("class", [])
+
+            if "warning" in note_class or "danger" in note_class:
+                note_type = "Warning"
+            elif "deprecated" in note_class:
+                note_type = "Deprecated"
+
+            # Add a clear heading to the note
+            if note.find("h4") is None and note.find("strong") is None:
+                strong = main_content.new_tag("strong")
+                strong.string = f"{note_type}: "
+                note.insert(0, strong)
+
+
 # Add a CLI to run the ebook maker
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -293,11 +365,13 @@ if __name__ == "__main__":
         maker = PythonDocsEbookMaker()
         maker.create_epub(output_filename)
     elif spider_id == "mdn_docs":
-        # Import here to avoid circular imports
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from mdn_ebook_maker import MDNEbookMaker
-
-        maker = MDNEbookMaker()
+        # Create the MDN ebook maker directly instead of importing
+        # This avoids import issues in containerized environments
+        maker = MDNEbookMaker(
+            spider_id="mdn_docs",
+            title="MDN JavaScript Documentation",
+            author="Mozilla Contributors",
+        )
         maker.create_epub(output_filename)
     else:
         print(f"Unknown spider ID: {spider_id}")

@@ -21,7 +21,9 @@ case "$COMMAND" in
 "make-ebook")
     echo "Creating ebook from spider data: $SPIDER"
     cd backend
-    python -m scripts.make_ebook "$SPIDER"
+    cd scripts
+    python make_ebook.py "$SPIDER"
+    cd ..
     ;;
 
 "optimize")
@@ -40,7 +42,9 @@ case "$COMMAND" in
 
     # Create the ebook
     echo "Step 2: Creating ebook"
-    python -m scripts.make_ebook "$SPIDER"
+    cd scripts
+    python make_ebook.py "$SPIDER"
+    cd ..
 
     # Optimize the ebook
     echo "Step 3: Optimizing ebook"
