@@ -26,7 +26,7 @@ class TukuyBooksAPI {
         baseUrl = "http://localhost:3000/api"; // Development
         if (config.debug) console.log(`Detected localhost, using: ${baseUrl}`);
       } else if (hostname === "luisvinatea.github.io") {
-        baseUrl = "https://tukuybooks-bf4rsvlu9-devinatea.vercel.app/api"; // Production from GitHub Pages
+        baseUrl = "https://tukuybooks.vercel.app/api"; // Production from GitHub Pages
         if (config.debug)
           console.log(`Detected GitHub Pages, using: ${baseUrl}`);
       } else {
