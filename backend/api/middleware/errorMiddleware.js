@@ -36,7 +36,11 @@ function errorHandler(err, req, res, next) {
 
   // Log the error with request details
   console.error(
-    `[${requestId}] [${req.method}] ${req.path} - Status ${statusCode}:`,
+    "[%s] [%s] %s - Status %d:",
+    requestId,
+    req.method,
+    req.path,
+    statusCode,
     {
       error: err.message,
       stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
