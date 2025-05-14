@@ -26,7 +26,7 @@ class TukuyBooksAPI {
         baseUrl = "http://localhost:3000/api"; // Development
         if (config.debug) console.log(`Detected localhost, using: ${baseUrl}`);
       } else if (hostname === "luisvinatea.github.io") {
-        baseUrl = "https://tukuybooks.vercel.app/api"; // Production from GitHub Pages
+        baseUrl = "https://tukuybooks-bf4rsvlu9-devinatea.vercel.app/api"; // Production from GitHub Pages
         if (config.debug)
           console.log(`Detected GitHub Pages, using: ${baseUrl}`);
       } else {
@@ -74,6 +74,11 @@ class TukuyBooksAPI {
    */
   async fetchWithRetry(url, options = {}, retries = this.maxRetries) {
     this.showLoading();
+
+    // Ensure consistent CORS settings for all requests
+    if (!options.headers) options.headers = {};
+    options.mode = "cors";
+    options.credentials = "omit"; // Avoid CORS issues with credentials
 
     try {
       const response = await fetch(url, options);
@@ -123,10 +128,9 @@ class TukuyBooksAPI {
           method: "GET",
           headers: {
             Accept: "application/json",
-            "Cache-Control": "no-cache",
           },
           mode: "cors",
-          cache: "no-store",
+          credentials: "omit", // Avoid sending credentials for CORS requests
         });
 
         if (response.ok) {
@@ -152,10 +156,9 @@ class TukuyBooksAPI {
           method: "GET",
           headers: {
             Accept: "application/json",
-            "Cache-Control": "no-cache",
           },
           mode: "cors",
-          cache: "no-store",
+          credentials: "omit", // Avoid sending credentials for CORS requests
         });
 
         if (response.ok) {
