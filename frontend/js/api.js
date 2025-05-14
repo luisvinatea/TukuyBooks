@@ -7,9 +7,34 @@ class TukuyBooksAPI {
   /**
    * Create a new TukuyBooks API client
    *
-   * @param {string} baseUrl - Base URL for the API (default: /api)
+   * @param {string} baseUrl - Base URL for the API
    */
-  constructor(baseUrl = "/api") {
+  constructor(baseUrl = null) {
+    // Check for user-provided configuration
+    const config = window.TukuyBooksConfig || {};
+
+    // Use config URL, provided URL, or auto-detect
+    if (config.apiUrl) {
+      baseUrl = config.apiUrl;
+      if (config.debug) console.log(`Using configured API URL: ${baseUrl}`);
+    } else if (baseUrl) {
+      if (config.debug) console.log(`Using provided API URL: ${baseUrl}`);
+    } else {
+      // Auto-detect environment and set the appropriate API URL
+      const hostname = window.location.hostname;
+      if (hostname === "localhost" || hostname === "127.0.0.1") {
+        baseUrl = "http://localhost:3000/api"; // Development
+        if (config.debug) console.log(`Detected localhost, using: ${baseUrl}`);
+      } else if (hostname === "luisvinatea.github.io") {
+        baseUrl = "https://tukuybooks.vercel.app/api"; // Production from GitHub Pages
+        if (config.debug)
+          console.log(`Detected GitHub Pages, using: ${baseUrl}`);
+      } else {
+        baseUrl = "/api"; // Same-origin fallback
+        if (config.debug) console.log(`Using same-origin API URL: ${baseUrl}`);
+      }
+    }
+
     this.baseUrl = baseUrl;
     this.activeRequests = 0;
     this.loadingIndicator = document.getElementById("global-loading");
@@ -82,6 +107,49 @@ class TukuyBooksAPI {
       throw error;
     } finally {
       this.hideLoading();
+    }
+  }
+
+  /**
+   * Test the API connection and return API status
+   *
+   * @returns {Promise<Object>} - API connection status
+   */
+  async testConnection() {
+    try {
+      // Try to connect to the health check endpoint
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+        },
+        mode: "cors",
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+        return {
+          connected: true,
+          url: this.baseUrl,
+          status: response.status,
+          statusText: response.statusText,
+        };
+      } else {
+        return {
+          connected: false,
+          url: this.baseUrl,
+          status: response.status,
+          statusText: response.statusText,
+          error: `API returned ${response.status}: ${response.statusText}`,
+        };
+      }
+    } catch (error) {
+      return {
+        connected: false,
+        url: this.baseUrl,
+        error: error.message || "Unknown connection error",
+      };
     }
   }
 

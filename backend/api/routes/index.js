@@ -17,6 +17,17 @@ router.get("/_vercel/health", (req, res) => {
   });
 });
 
+// Public health check endpoint for client applications
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "TukuyBooks API is operational",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    environment: process.env.NODE_ENV || "development",
+  });
+});
+
 // API documentation endpoint
 router.get("/docs", serveApiDoc);
 

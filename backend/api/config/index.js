@@ -33,10 +33,22 @@ const spiderConfig = {
 
 // CORS configuration
 const corsConfig = {
-  origin: isProduction ? [/tukuybooks\.vercel\.app$/] : "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  origin: isProduction
+    ? [
+        /tukuybooks\.vercel\.app$/, // Vercel deployment
+        /luisvinatea\.github\.io$/, // GitHub Pages deployment
+        /localhost:\d+$/, // Local development
+      ]
+    : "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+  ],
   credentials: true,
+  maxAge: 86400, // 24 hours in seconds
 };
 
 // Export all configurations

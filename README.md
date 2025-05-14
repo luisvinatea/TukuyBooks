@@ -13,6 +13,8 @@ The TukuyBooks web interface allows you to:
 
 **Visit the online interface:** [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/)
 
+**API Debug Tool:** [https://luisvinatea.github.io/TukuyBooks/api-debug.html](https://luisvinatea.github.io/TukuyBooks/api-debug.html)
+
 ## Features
 
 - **Web Scraping**: Capture documentation from open-source websites with custom spiders
@@ -130,3 +132,12 @@ Robust error handling strategy:
 - Sufficient color contrast in both light and dark modes
 - Focus management for modals and interactive elements
 - Status announcements for loading states and events
+
+## Architecture
+
+TukuyBooks uses a modern architecture:
+
+- **Frontend**: HTML/CSS/JS hosted on GitHub Pages
+- **Backend**: Node.js API deployed on Vercel (handles API requests and runs Python spiders)
+- **Spiders**: Python-based web scrapers using the Scrapy framework
+- **Ebook Generation**: Custom Python scripts for EPUB and PDF creation

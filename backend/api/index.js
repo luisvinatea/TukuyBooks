@@ -5,7 +5,6 @@
 
 const express = require("express");
 const cors = require("cors");
-const morgan = require("morgan");
 const path = require("path");
 const fs = require("fs");
 
@@ -16,6 +15,7 @@ const {
   notFoundHandler,
 } = require("./middleware/errorMiddleware");
 const { standardLimiter } = require("./middleware/rateLimitMiddleware");
+const { createRequestLogger } = require("./middleware/loggerMiddleware");
 const routes = require("./routes");
 const { ensureDirectoryExists } = require("./utils");
 
@@ -26,7 +26,7 @@ const PORT = config.server.port;
 // Configure middleware
 app.use(express.json());
 app.use(cors(config.cors));
-app.use(morgan(config.isProduction ? "combined" : "dev"));
+app.use(createRequestLogger()); // Use our custom request logger
 app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting to all requests
@@ -36,7 +36,7 @@ app.use(standardLimiter);
 ensureDirectoryExists(config.paths.outputs);
 
 // Mount API routes
-app.use("/api", routes);
+app.use("/", routes); // Don't prefix with "/api" since Vercel already does that
 
 // Global error handling middleware
 app.use(errorHandler);

@@ -156,11 +156,16 @@ async function init() {
   // Set up event listeners
   setupEventListeners();
 
+  // Log the configured API URL for debugging
+  console.info(`TukuyBooks API configured at: ${api.baseUrl}`);
+
   // Validate backend connection
   if (!(await validateBackendConnection())) {
+    showStatus("error", `API Connection Failed: ${api.baseUrl}`);
     showNotification(
       "Could not connect to the backend server. Some features may not work.",
-      "warning"
+      "error",
+      8000 // Show for longer
     );
     return;
   }
@@ -766,12 +771,29 @@ function validateSpiderSelection() {
 // Validate connection to backend
 async function validateBackendConnection() {
   try {
-    // Try to connect to the backend API
+    // First try a direct connection test
+    const connectionStatus = await api.testConnection();
+
+    if (!connectionStatus.connected) {
+      console.error("Backend connection failed:", connectionStatus.error);
+      showNotification(
+        `Cannot connect to API at ${connectionStatus.url}. Please check your connection and try again.`,
+        "error"
+      );
+      return false;
+    }
+
+    // If connection is good, try to get spiders as a functional test
     await api.getSpiders();
+
     console.log("Backend connection successful");
     return true;
   } catch (error) {
     console.error("Backend connection failed:", error);
+    showNotification(
+      "Could not communicate with the backend service. Please try again later.",
+      "error"
+    );
     return false;
   }
 }
