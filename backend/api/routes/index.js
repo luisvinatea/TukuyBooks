@@ -20,13 +20,21 @@ router.get("/_vercel/health", (req, res) => {
 // Public health check endpoint for client applications
 router.get("/health", (req, res) => {
   // Ensure CORS headers are set for health endpoint specifically
-  res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+  const allowedOrigins = [
+    "https://example.com",
+    "https://subdomain.example.com",
+    "https://example.com:1337"
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Access-Control-Allow-Credentials", "true");
+  }
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set(
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"
   );
-  res.set("Access-Control-Allow-Credentials", "true");
 
   res.status(200).json({
     success: true,
@@ -45,13 +53,21 @@ router.get("*", (req, res, next) => {
     (req.query && req.query.path === "health")
   ) {
     // Ensure CORS headers are set for query-based health endpoint
-    res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+    const allowedOrigins = [
+      "https://example.com",
+      "https://subdomain.example.com",
+      "https://example.com:1337"
+    ];
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Access-Control-Allow-Credentials", "true");
+    }
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.set(
       "Access-Control-Allow-Headers",
       "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"
     );
-    res.set("Access-Control-Allow-Credentials", "true");
 
     return res.status(200).json({
       success: true,
