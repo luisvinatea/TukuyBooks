@@ -26,16 +26,30 @@ def load_spider_config():
     Returns:
         dict: Dictionary of spider configurations by ID
     """
-    config_path = os.path.join("backend", "spiders", "config.json")
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-            return {
-                spider["id"]: spider for spider in config.get("spiders", [])
-            }
-    except Exception as e:
-        logger.error(f"Error loading spider config: {e}")
-        return {}
+    # Try the path depending on where we're running from
+    possible_paths = [
+        os.path.join("backend", "spiders", "config.json"),  # From project root
+        os.path.join("spiders", "config.json"),  # From backend directory
+        os.path.join("..", "spiders", "config.json"),  # From scripts directory
+    ]
+
+    for config_path in possible_paths:
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    return {
+                        spider["id"]: spider
+                        for spider in config.get("spiders", [])
+                    }
+            except Exception as e:
+                logger.error(
+                    f"Error loading spider config from {config_path}: {e}"
+                )
+                continue
+
+    logger.error("Could not find config.json in any expected location")
+    return {}
 
 
 def run_spider(spider_name):
@@ -69,10 +83,37 @@ def run_spider(spider_name):
 
         # Import the spider module dynamically
         try:
-            module_name = config.get("module", f"spiders.{spider_name}_spider")
-            class_name = config.get("class")
+            # Adjust module name based on how it's referenced in config.json
+            raw_module_name = config.get(
+                "module", f"spiders.{spider_name}_spider"
+            )
 
-            spider_module = importlib.import_module(module_name)
+            # Try different module name variations
+            possible_module_names = [
+                raw_module_name,
+                raw_module_name.replace("backend.", ""),
+                f"spiders.{spider_name}_spider",
+            ]
+
+            spider_module = None
+            for possible_name in possible_module_names:
+                try:
+                    spider_module = importlib.import_module(possible_name)
+                    logger.info(
+                        f"Successfully imported module: {possible_name}"
+                    )
+                    break
+                except ImportError as e:
+                    logger.debug(f"Could not import {possible_name}: {e}")
+                    continue
+
+            if not spider_module:
+                logger.error(
+                    f"Could not import any module variation for {spider_name}"
+                )
+                return False
+
+            class_name = config.get("class")
             spider_class = None
 
             if class_name:
