@@ -94,11 +94,33 @@ class EbookMaker:
         for i, chap in enumerate(chapters):
             fname = f"chap_{i + 1}.xhtml"
             url_to_filename[chap["url"]] = fname
+
+            # Create a basic HTML structure for the content
+            initial_content = f"""<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+  <head>
+    <title>{chap["title"]}</title>
+  </head>
+  <body>
+    <h1>{chap["title"]}</h1>
+    <p>Chapter content will be replaced during processing.</p>
+  </body>
+</html>"""
+
+            # Create the item with initial content
             item = epub.EpubHtml(
-                title=chap["title"], file_name=fname, lang=self.language
+                title=chap["title"],
+                file_name=fname,
+                lang=self.language,
+                content=initial_content,
             )
             epub_chapters.append(item)
             book.add_item(item)
+            self.logger.debug(
+                f"Created item for chapter {i + 1}: {chap['title']}"
+            )
+
         return url_to_filename, epub_chapters
 
     def rewrite_href(
@@ -303,16 +325,53 @@ class EbookMaker:
             self.logger.info("Creating items")
             url_to_filename, epub_chapters = self.create_items(chapters, book)
 
+            # Log the initial state of the first chapter
+            self.logger.info(f"First chapter title: {epub_chapters[0].title}")
+            self.logger.info(
+                f"First chapter content length: {len(epub_chapters[0].content) if epub_chapters[0].content else 0} bytes"
+            )
+            self.logger.info(
+                f"First chapter filename: {epub_chapters[0].file_name}"
+            )
+
             self.logger.info("Fixing internal links")
             self.fix_internal_links(chapters, epub_chapters, url_to_filename)
+
+            # Log the content length after fixing links
+            self.logger.info(
+                f"First chapter content length after fixing: {len(epub_chapters[0].content) if epub_chapters[0].content else 0} bytes"
+            )
+
+            # Check if content is properly set in all chapters
+            empty_chapters = sum(1 for ch in epub_chapters if not ch.content)
+            if empty_chapters:
+                self.logger.warning(
+                    f"{empty_chapters} chapters have no content!"
+                )
 
             self.logger.info("Building table of contents")
             self.add_toc(book, epub_chapters, chapters)
 
             # Write the EPUB file
             self.logger.info(f"Writing EPUB to {output_path}")
+
+            # Check if the output file already exists and remove it
+            if os.path.exists(output_path):
+                os.remove(output_path)
+                self.logger.info(f"Removed existing file: {output_path}")
+
             epub.write_epub(output_path, book, {})
-            self.logger.info(f"EPUB created at {output_path}")
+
+            # Verify the file was created and log its size
+            if os.path.exists(output_path):
+                file_size = os.path.getsize(output_path)
+                self.logger.info(
+                    f"EPUB created at {output_path} ({file_size} bytes)"
+                )
+            else:
+                self.logger.error(
+                    f"EPUB file was not created at {output_path}"
+                )
 
             return output_path
         except Exception as e:
