@@ -4,8 +4,8 @@
 # Usage: ./book_optimizer.sh [input_directory] [output_directory]
 
 # Set default directories if not provided
-INPUT_DIR=${1:-"./backend/outputs"}
-OUTPUT_DIR=${2:-"./backend/outputs/optimized"}
+INPUT_DIR=${1:-"../outputs"}
+OUTPUT_DIR=${2:-"../outputs/optimized"}
 
 # Display banner
 echo "========================================================"
