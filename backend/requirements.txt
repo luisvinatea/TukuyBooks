@@ -5,5 +5,11 @@ urllib3==1.26.19
 lxml>=4.9.0
 Pillow>=10.0.0
 Markdown>=3.5.0
+requests>=2.30.0
+cssselect>=1.2.0
+chardet>=5.1.0
+html5lib>=1.1
+cssutils>=2.6.0
+flask>=3.0.0  # For the API server
 
 

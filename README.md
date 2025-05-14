@@ -13,11 +13,16 @@ TukuyBooks now provides Docker containers for easy local deployment of spider pi
 # Run the Python documentation spider
 docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest crawl python_docs
 
+# Run the MDN JavaScript documentation spider
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest crawl mdn_docs
+
 # Generate an ebook from the scraped data
 docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest make-ebook python_docs
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest make-ebook mdn_docs
 
 # Run the full pipeline (crawl -> make-ebook -> optimize)
 docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_docs
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all mdn_docs
 ```
 
 The generated ebooks will be available in your local `./outputs` directory.
@@ -80,6 +85,10 @@ Below are the active spider pipelines transforming specific websites into free k
 - **PythonDocs**: Scrapes Python 3 documentation from `docs.python.org/3/`.
   - Status: Active
   - Outputs: `Python3Docs.epub`, `Python3Docs.pdf`
+
+- **MDNDocs**: Scrapes MDN JavaScript documentation from `developer.mozilla.org`.
+  - Status: Active
+  - Outputs: `MDNJavaScriptDocs.epub`, `MDNJavaScriptDocs.pdf`
 
 *More pipelines coming soon! Suggest new websites via [Issues](https://github.com/luisvinatea/TukuyBooks/issues).*
 
