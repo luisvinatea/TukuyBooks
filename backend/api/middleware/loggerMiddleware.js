@@ -106,4 +106,43 @@ function createRequestLogger() {
   );
 }
 
-module.exports = { createRequestLogger };
+/**
+ * Request debugging middleware that logs detailed information about each request
+ * This is particularly useful for diagnosing routing and parameter issues
+ *
+ * @returns {Function} Express middleware
+ */
+function createRequestDebugger() {
+  return (req, res, next) => {
+    // Create a unique ID for this request
+    const requestId =
+      req.id ||
+      `req_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    req.id = requestId;
+
+    // Log basic request information
+    console.log(`[${requestId}] ${req.method} ${req.originalUrl}`);
+
+    // Log detailed request information
+    console.log({
+      path: req.path,
+      baseUrl: req.baseUrl,
+      params: req.params,
+      query: req.query,
+      hostname: req.hostname,
+      ip: req.ip,
+      protocol: req.protocol,
+      headers: {
+        origin: req.headers.origin,
+        host: req.headers.host,
+        referer: req.headers.referer,
+        "user-agent": req.headers["user-agent"],
+      },
+    });
+
+    // Continue with request handling
+    next();
+  };
+}
+
+module.exports = { createRequestLogger, createRequestDebugger };

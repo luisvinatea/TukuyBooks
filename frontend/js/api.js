@@ -117,31 +117,70 @@ class TukuyBooksAPI {
    */
   async testConnection() {
     try {
-      // Try to connect to the health check endpoint
-      const response = await fetch(`${this.baseUrl}/health`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Cache-Control": "no-cache",
-        },
-        mode: "cors",
-        cache: "no-store",
-      });
+      // First try the direct health endpoint
+      try {
+        const response = await fetch(`${this.baseUrl}/health`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          mode: "cors",
+          cache: "no-store",
+        });
 
-      if (response.ok) {
-        return {
-          connected: true,
-          url: this.baseUrl,
-          status: response.status,
-          statusText: response.statusText,
-        };
-      } else {
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            connected: true,
+            url: this.baseUrl,
+            status: response.status,
+            statusText: response.statusText,
+            details: data,
+          };
+        }
+      } catch (primaryError) {
+        console.warn(
+          "Primary health check failed, trying fallback",
+          primaryError
+        );
+      }
+
+      // If direct health check fails, try with query parameter (workaround for query param issue)
+      try {
+        const response = await fetch(`${this.baseUrl}?path=health`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          mode: "cors",
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            connected: true,
+            url: this.baseUrl,
+            status: response.status,
+            statusText: response.statusText,
+            details: data,
+          };
+        }
+
         return {
           connected: false,
           url: this.baseUrl,
           status: response.status,
           statusText: response.statusText,
           error: `API returned ${response.status}: ${response.statusText}`,
+        };
+      } catch (fallbackError) {
+        return {
+          connected: false,
+          url: this.baseUrl,
+          error: fallbackError.message || "Unknown connection error",
         };
       }
     } catch (error) {
@@ -160,7 +199,9 @@ class TukuyBooksAPI {
    */
   async getSpiders() {
     try {
-      const data = await this.fetchWithRetry(`${this.baseUrl}/spiders`);
+      // Use clean URL without query parameters
+      const url = `${this.baseUrl}/spiders`;
+      const data = await this.fetchWithRetry(url);
       return data.data.spiders;
     } catch (error) {
       console.error("Error getting spiders:", error);

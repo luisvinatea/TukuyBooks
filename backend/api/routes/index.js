@@ -28,6 +28,25 @@ router.get("/health", (req, res) => {
   });
 });
 
+// Additional health endpoint that handles query params for frontend testing
+router.get("*", (req, res, next) => {
+  // Handle requests with health in the path (frontend sometimes adds ?path=health)
+  if (
+    req.path.includes("health") ||
+    (req.query && req.query.path === "health")
+  ) {
+    return res.status(200).json({
+      success: true,
+      message: "TukuyBooks API is operational (query param handler)",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+    });
+  }
+  // Not a health check, continue with normal routing
+  next();
+});
+
 // API documentation endpoint
 router.get("/docs", serveApiDoc);
 

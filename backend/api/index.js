@@ -15,7 +15,10 @@ const {
   notFoundHandler,
 } = require("./middleware/errorMiddleware");
 const { standardLimiter } = require("./middleware/rateLimitMiddleware");
-const { createRequestLogger } = require("./middleware/loggerMiddleware");
+const {
+  createRequestLogger,
+  createRequestDebugger,
+} = require("./middleware/loggerMiddleware");
 const routes = require("./routes");
 const { ensureDirectoryExists } = require("./utils");
 
@@ -27,6 +30,7 @@ const PORT = config.server.port;
 app.use(express.json());
 app.use(cors(config.cors));
 app.use(createRequestLogger()); // Use our custom request logger
+app.use(createRequestDebugger()); // Add detailed request debugging
 app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting to all requests
@@ -35,8 +39,10 @@ app.use(standardLimiter);
 // Ensure necessary directories exist
 ensureDirectoryExists(config.paths.outputs);
 
-// Mount API routes
-app.use("/", routes); // Don't prefix with "/api" since Vercel already does that
+// Mount API routes - use the proper path detection
+app.use("/", routes);
+// Also mount routes at /api to handle both direct access and Vercel's prefixing
+app.use("/api", routes);
 
 // Global error handling middleware
 app.use(errorHandler);

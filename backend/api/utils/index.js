@@ -103,10 +103,50 @@ async function fileExists(filePath) {
   }
 }
 
+/**
+ * Validates and sanitizes route parameters
+ *
+ * @param {string} paramValue - The parameter value from req.params
+ * @param {object} options - Options for validation
+ * @param {boolean} options.alphanumericOnly - If true, only allows alphanumeric characters, hyphens and underscores
+ * @param {boolean} options.required - If true, throws error if parameter is missing
+ * @returns {string} - The sanitized parameter value
+ */
+function validateRouteParam(
+  paramValue,
+  options = { alphanumericOnly: true, required: true }
+) {
+  // Check if parameter exists
+  if (!paramValue && options.required) {
+    throw new APIError("Missing required route parameter", 400);
+  }
+
+  // For non-required params that are missing, just return null
+  if (!paramValue && !options.required) {
+    return null;
+  }
+
+  // Remove any query string for path parameters that might get them
+  if (paramValue.includes("?")) {
+    paramValue = paramValue.split("?")[0];
+  }
+
+  // Validate alphanumeric characters if needed
+  if (options.alphanumericOnly && !/^[a-zA-Z0-9_-]+$/.test(paramValue)) {
+    throw new APIError(
+      `Invalid parameter format: ${paramValue}. Must contain only letters, numbers, underscores or hyphens.`,
+      400
+    );
+  }
+
+  return paramValue;
+}
+
 module.exports = {
   ensureDirectoryExists,
   createResponse,
   asyncHandler,
   fileExists,
+  validateRouteParam,
   APIError,
 };

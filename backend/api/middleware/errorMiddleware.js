@@ -66,6 +66,24 @@ function errorHandler(err, req, res, next) {
  * 404 Not Found middleware for handling undefined routes
  */
 function notFoundHandler(req, res, next) {
+  // Check if there's a path parameter in the query string
+  // This happens when the frontend includes query parameters in API requests
+  const { path } = req.query;
+
+  if (path) {
+    // Remove query parameters from path for cleaner error message
+    const cleanPath = path.split("?")[0];
+
+    // Log the attempted path for debugging
+    console.warn(
+      `Route not found: ${req.originalUrl}, attempted path redirect: ${path}`
+    );
+
+    // If there's a 'path' query parameter, try to redirect to that path
+    // This is a temporary fix for handling query parameters in the wrong place
+    return res.redirect(`/api/${cleanPath}`);
+  }
+
   res
     .status(404)
     .json(createResponse(false, `Route not found: ${req.originalUrl}`));

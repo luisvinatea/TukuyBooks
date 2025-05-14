@@ -21,7 +21,13 @@ const getSpiders = asyncHandler(async (req, res) => {
  * Get a specific spider by ID
  */
 const getSpiderById = asyncHandler(async (req, res) => {
-  const spiderId = req.params.id;
+  let spiderId = req.params.id;
+
+  // Handle query parameters in the ID
+  if (spiderId && spiderId.includes("?")) {
+    spiderId = spiderId.split("?")[0];
+  }
+
   const spider = await spiderService.getSpiderById(spiderId);
 
   if (!spider) {
@@ -37,14 +43,17 @@ const getSpiderById = asyncHandler(async (req, res) => {
  * Run a spider
  */
 const runSpider = asyncHandler(async (req, res) => {
-  const spiderId = req.params.id;
+  let spiderId = req.params.id;
+
+  // Handle query parameters in the ID
+  if (spiderId && spiderId.includes("?")) {
+    spiderId = spiderId.split("?")[0];
+  }
+
   if (!/^[a-zA-Z0-9_-]+$/.test(spiderId)) {
-    throw new APIError(
-      "Invalid spider ID format",
-      400,
-      "INVALID_PARAMETER",
-      { parameter: "id" }
-    );
+    throw new APIError("Invalid spider ID format", 400, "INVALID_PARAMETER", {
+      parameter: "id",
+    });
   }
 
   try {
