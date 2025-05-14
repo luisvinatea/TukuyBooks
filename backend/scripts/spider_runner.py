@@ -133,10 +133,7 @@ def run_spider(spider_name):
                 logger.error(f"Could not find spider class for {spider_name}")
                 return False
 
-            # Create a spider instance
-            spider = spider_class()
-
-            # Configure scrapy and run the spider
+            # Configure scrapy and run the spider class (not an instance)
             from scrapy.crawler import CrawlerProcess
             from scrapy.utils.project import get_project_settings
 
@@ -148,7 +145,7 @@ def run_spider(spider_name):
             )
 
             process = CrawlerProcess(settings)
-            process.crawl(spider)
+            process.crawl(spider_class)  # Pass the class, not an instance
             process.start()  # This blocks until the spider is finished
 
             logger.info(f"Spider {spider_name} finished successfully")
