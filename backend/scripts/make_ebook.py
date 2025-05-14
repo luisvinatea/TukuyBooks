@@ -79,50 +79,6 @@ class EbookMaker:
         book.add_author(self.author)
         return book
 
-    def create_items(self, chapters, book):
-        """Create EpubHtml items, map URLs to filenames, and add to book.
-
-        Args:
-            chapters (list): List of chapter dictionaries.
-            book (epub.EpubBook): Book object to add items to.
-
-        Returns:
-            tuple: URL to filename mapping and list of epub chapters.
-        """
-        url_to_filename = {}
-        epub_chapters = []
-        for i, chap in enumerate(chapters):
-            fname = f"chap_{i + 1}.xhtml"
-            url_to_filename[chap["url"]] = fname
-
-            # Create a basic HTML structure for the content
-            initial_content = f"""<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-  <head>
-    <title>{chap["title"]}</title>
-  </head>
-  <body>
-    <h1>{chap["title"]}</h1>
-    <p>Chapter content will be replaced during processing.</p>
-  </body>
-</html>"""
-
-            # Create the item with initial content
-            item = epub.EpubHtml(
-                title=chap["title"],
-                file_name=fname,
-                lang=self.language,
-                content=initial_content,
-            )
-            epub_chapters.append(item)
-            book.add_item(item)
-            self.logger.debug(
-                f"Created item for chapter {i + 1}: {chap['title']}"
-            )
-
-        return url_to_filename, epub_chapters
-
     def rewrite_href(
         self, raw_href, url_to_filename, chapters, internal_links
     ):
@@ -168,131 +124,61 @@ class EbookMaker:
                     return url_to_filename[o["url"]] + fragment
         return None
 
-    def fix_internal_links(self, chapters, epub_chapters, url_to_filename):
-        """Update internal links in each chapter content.
+    def clean_html_content(
+        self, html_content, chapter_title="", chapter_index=0
+    ):
+        """Clean and process HTML content for ebook compatibility.
 
         Args:
-            chapters (list): List of chapter dictionaries.
-            epub_chapters (list): List of EpubHtml objects.
-            url_to_filename (dict): Mapping of URLs to filenames.
-        """
-        for idx, chap in enumerate(chapters):
-            soup = BeautifulSoup(chap["content"], "html.parser")
+            html_content (str): Raw HTML content
+            chapter_title (str): Title of the chapter for error reporting
+            chapter_index (int): Index of the chapter for error reporting
 
-            # First process internal references
-            for element in soup.find_all("a", class_="reference internal"):
-                if not isinstance(element, Tag):
-                    continue
-                raw_href = element.attrs.get("href", "")
-                new_href = self.rewrite_href(
-                    raw_href,
-                    url_to_filename,
-                    chapters,
-                    chap.get("internal_links", {}),
+        Returns:
+            str: Cleaned HTML content
+        """
+        try:
+            # Try to parse the HTML content
+            soup = BeautifulSoup(html_content, "html.parser")
+
+            # Remove script tags and other unwanted elements
+            for script in soup.find_all("script"):
+                script.extract()
+
+            # Return valid HTML string if successful
+            return soup
+        except Exception as e:
+            self.logger.warning(
+                f"Error parsing HTML for chapter {chapter_index + 1} '{chapter_title}': {e}"
+            )
+
+            # Return a simple soup object with an error message as fallback
+            fallback = BeautifulSoup("", "html.parser")
+            h1 = fallback.new_tag("h1")
+            h1.string = chapter_title or f"Chapter {chapter_index + 1}"
+            fallback.append(h1)
+
+            p = fallback.new_tag("p")
+            p.string = "The original content could not be processed correctly. Here's the raw text:"
+            fallback.append(p)
+
+            # Try to extract text from the raw HTML
+            try:
+                raw_text = BeautifulSoup(
+                    html_content, "html.parser"
+                ).get_text()
+                pre = fallback.new_tag("pre")
+                # Limit text length to avoid excessively large chapters
+                pre.string = raw_text[:5000] + (
+                    "..." if len(raw_text) > 5000 else ""
                 )
-                if new_href:
-                    element["href"] = new_href
+                fallback.append(pre)
+            except Exception:
+                p2 = fallback.new_tag("p")
+                p2.string = "Could not extract text from the original content."
+                fallback.append(p2)
 
-            # Process any other links that might be internal
-            for element in soup.find_all("a", href=True):
-                if (
-                    "class" in element.attrs
-                    and "reference internal" in element["class"]
-                ):
-                    continue  # Already processed
-
-                raw_href = element.attrs.get("href", "")
-                new_href = self.rewrite_href(
-                    raw_href,
-                    url_to_filename,
-                    chapters,
-                    chap.get("internal_links", {}),
-                )
-                if new_href:
-                    element["href"] = new_href
-
-            # Apply custom content processing if needed
-            self._process_content(soup)
-
-            # Make sure we're setting valid XHTML content for the epub
-            content = f"""<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-  <head>
-    <title>{chap["title"]}</title>
-  </head>
-  <body>
-    {str(soup)}
-  </body>
-</html>"""
-
-            # Set the properly formatted content to the epub chapter
-            epub_chapters[idx].content = content
-
-    def add_toc(self, book, epub_chapters, chapters):
-        """Add table of contents to the book.
-
-        Args:
-            book (epub.EpubBook): Book object to add TOC to.
-            epub_chapters (list): List of EpubHtml objects.
-            chapters (list): List of chapter dictionaries.
-        """
-        # Create a simple flat TOC - more reliable across different datasets
-        toc = []
-        for epub_chap in epub_chapters:
-            toc.append(epub_chap)
-
-        book.toc = toc
-
-        # Add default NCX and Navigation files
-        book.add_item(epub.EpubNcx())
-        book.add_item(epub.EpubNav())
-
-        # Define CSS
-        style = """
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.5;
-            margin: 2em;
-        }
-        h1, h2, h3, h4 {
-            color: #333;
-            margin-top: 1.5em;
-        }
-        pre, code {
-            background-color: #f4f4f4;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            padding: 0.2em;
-            font-family: monospace;
-        }
-        pre {
-            padding: 0.5em;
-            overflow-x: auto;
-        }
-        a {
-            color: #0366d6;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        """
-
-        nav_css = epub.EpubItem(
-            uid="style_nav",
-            file_name="style/nav.css",
-            media_type="text/css",
-            content=style,
-        )
-        book.add_item(nav_css)
-
-        # Create spine
-        book.spine = ["nav"] + epub_chapters
-
-        self.logger.info(
-            f"Created TOC with {len(toc)} entries, added NCX and Nav files"
-        )
+            return fallback
 
     def create_epub(self, output_filename=None):
         """Create an EPUB file from scraped data.
@@ -322,37 +208,106 @@ class EbookMaker:
             )
             book = self.init_book()
 
-            self.logger.info("Creating items")
-            url_to_filename, epub_chapters = self.create_items(chapters, book)
+            # Create chapters
+            epub_chapters = []
+            url_to_filename = {}
 
-            # Log the initial state of the first chapter
-            self.logger.info(f"First chapter title: {epub_chapters[0].title}")
-            self.logger.info(
-                f"First chapter content length: {len(epub_chapters[0].content) if epub_chapters[0].content else 0} bytes"
-            )
-            self.logger.info(
-                f"First chapter filename: {epub_chapters[0].file_name}"
-            )
+            for i, chap in enumerate(chapters):
+                # Map the URL to filename
+                fname = f"chap_{i + 1}.xhtml"
+                url_to_filename[chap["url"]] = fname
 
-            self.logger.info("Fixing internal links")
-            self.fix_internal_links(chapters, epub_chapters, url_to_filename)
-
-            # Log the content length after fixing links
-            self.logger.info(
-                f"First chapter content length after fixing: {len(epub_chapters[0].content) if epub_chapters[0].content else 0} bytes"
-            )
-
-            # Check if content is properly set in all chapters
-            empty_chapters = sum(1 for ch in epub_chapters if not ch.content)
-            if empty_chapters:
-                self.logger.warning(
-                    f"{empty_chapters} chapters have no content!"
+                # Clean the HTML content using our improved method
+                chapter_title = chap.get("title", f"Chapter {i + 1}")
+                soup = self.clean_html_content(
+                    chap["content"], chapter_title, i
                 )
 
-            self.logger.info("Building table of contents")
-            self.add_toc(book, epub_chapters, chapters)
+                try:
+                    # Process internal links
+                    for element in soup.find_all("a", href=True):
+                        raw_href = element.attrs.get("href", "")
+                        new_href = self.rewrite_href(
+                            raw_href,
+                            url_to_filename,
+                            chapters,
+                            chap.get("internal_links", {}),
+                        )
+                        if new_href:
+                            element["href"] = new_href
 
-            # Write the EPUB file
+                    # Apply any additional content processing
+                    self._process_content(soup)
+
+                    # Get the content as string
+                    content = str(soup)
+                except Exception as e:
+                    self.logger.warning(
+                        f"Error processing links for chapter {i + 1} '{chapter_title}': {e}"
+                    )
+                    # Use the soup as is even if link processing failed
+                    content = str(soup)
+
+                # Create the chapter with the processed content
+                c = epub.EpubHtml(
+                    title=chapter_title,
+                    file_name=fname,
+                    lang=self.language,
+                    content=content,
+                )
+
+                # Add to book
+                book.add_item(c)
+                epub_chapters.append(c)
+
+            # Define CSS
+            style = """
+            body {
+                font-family: Arial, sans-serif;
+                margin: 2%;
+                padding: 0;
+                line-height: 1.5;
+            }
+            h1 {
+                color: #333;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 0.5em;
+            }
+            code {
+                font-family: monospace;
+                background-color: #f5f5f5;
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+            }
+            pre {
+                background-color: #f5f5f5;
+                padding: 1em;
+                overflow-x: auto;
+                white-space: pre-wrap;
+                border-radius: 3px;
+                max-width: 100%;
+            }
+            """
+
+            nav_css = epub.EpubItem(
+                uid="style_nav",
+                file_name="style/style.css",
+                media_type="text/css",
+                content=style,
+            )
+            book.add_item(nav_css)
+
+            # Add TOC
+            book.toc = epub_chapters
+
+            # Add navigation files
+            book.add_item(epub.EpubNcx())
+            book.add_item(epub.EpubNav())
+
+            # Define spine
+            book.spine = ["nav"] + epub_chapters
+
+            # Write to file
             self.logger.info(f"Writing EPUB to {output_path}")
 
             # Check if the output file already exists and remove it
@@ -366,14 +321,13 @@ class EbookMaker:
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
                 self.logger.info(
-                    f"EPUB created at {output_path} ({file_size} bytes)"
+                    f"EPUB created successfully: {output_path} ({file_size} bytes)"
                 )
+                return output_path
             else:
-                self.logger.error(
-                    f"EPUB file was not created at {output_path}"
-                )
+                self.logger.error("Failed to create EPUB file")
+                return None
 
-            return output_path
         except Exception as e:
             self.logger.error(f"Error creating EPUB: {e}")
             import traceback
@@ -428,60 +382,74 @@ class MDNEbookMaker(EbookMaker):
         if not isinstance(main_content, Tag):
             return
 
-        # Remove elements that don't work well in ebooks
-        selectors_to_remove = [
-            ".newsletter-box",
-            ".metadata",
-            ".document-toc-container",
-            ".metadata-button-container",
-            ".top-navigation-container",
-            ".page-footer-container",
-            ".sidebar-container",
-            "nav.breadcrumbs-container",
-            "nav.sidebar",
-            "aside.metadata",
-            "aside.quick-links",
-            ".on-github",
-            ".translationInProgress",
-            ".notecard.deprecated",
-            ".notecard.warning",
-            ".visually-hidden",
-            ".hidden",
-            "iframe",
-            "script",
-            ".interactive-example",
-        ]
+        try:
+            # Remove elements that don't work well in ebooks
+            selectors_to_remove = [
+                ".newsletter-box",
+                ".metadata",
+                ".document-toc-container",
+                ".metadata-button-container",
+                ".top-navigation-container",
+                ".page-footer-container",
+                ".sidebar-container",
+                "nav.breadcrumbs-container",
+                "nav.sidebar",
+                "aside.metadata",
+                "aside.quick-links",
+                ".on-github",
+                ".translationInProgress",
+                ".notecard.deprecated",
+                ".notecard.warning",
+                ".visually-hidden",
+                ".hidden",
+                "iframe",
+                "script",
+                ".interactive-example",
+            ]
 
-        for selector in selectors_to_remove:
-            for element in main_content.select(selector):
-                if element:
-                    element.extract()
+            for selector in selectors_to_remove:
+                try:
+                    for element in main_content.select(selector):
+                        if element:
+                            element.extract()
+                except Exception:
+                    # Continue even if a particular selector fails
+                    pass
 
-        # Fix code blocks - make sure they render well in ebooks
-        for pre in main_content.find_all("pre"):
-            if not pre.get("class"):
-                pre["class"] = "code"
+            # Fix code blocks - make sure they render well in ebooks
+            for pre in main_content.find_all("pre"):
+                if not pre.get("class"):
+                    pre["class"] = "code"
 
-        # Turn note/warning boxes into formatted sections with clear titles
-        for note in main_content.select(".notecard, .note, .warning"):
-            note_type = "Note"
-            note_class = note.get("class", [])
+            # Turn note/warning boxes into formatted sections with clear titles
+            for note in main_content.select(".notecard, .note, .warning"):
+                note_type = "Note"
+                note_class = note.get("class", [])
 
-            if "warning" in note_class or "danger" in note_class:
-                note_type = "Warning"
-            elif "deprecated" in note_class:
-                note_type = "Deprecated"
+                if "warning" in note_class or "danger" in note_class:
+                    note_type = "Warning"
+                elif "deprecated" in note_class:
+                    note_type = "Deprecated"
 
-            # Add a clear heading to the note
-            if note.find("h4") is None and note.find("strong") is None:
-                strong = main_content.new_tag("strong")
-                strong.string = f"{note_type}: "
-                note.insert(0, strong)
+                # Add a clear heading to the note
+                if note.find("h4") is None and note.find("strong") is None:
+                    strong = main_content.new_tag("strong")
+                    strong.string = f"{note_type}: "
+                    note.insert(0, strong)
+
+        except Exception as e:
+            # Catch any errors in the processing, but allow the content to be used
+            self.logger.warning(f"Error processing MDN content: {e}")
+            # We don't need to modify main_content here as we're operating on it directly
 
 
 # Add a CLI to run the ebook maker
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # Set up more verbose logging to debug our improvements
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
     if len(sys.argv) < 2:
         print("Usage: python make_ebook.py <spider_id> [output_filename]")
