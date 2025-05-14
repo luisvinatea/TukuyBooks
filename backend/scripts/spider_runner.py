@@ -8,6 +8,7 @@ import sys
 import os
 import logging
 import importlib
+import json
 from pathlib import Path
 
 # Configure logging
@@ -16,6 +17,25 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger("spider_runner")
+
+
+def load_spider_config():
+    """
+    Load the spider configuration from config.json
+
+    Returns:
+        dict: Dictionary of spider configurations by ID
+    """
+    config_path = os.path.join("backend", "spiders", "config.json")
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+            return {
+                spider["id"]: spider for spider in config.get("spiders", [])
+            }
+    except Exception as e:
+        logger.error(f"Error loading spider config: {e}")
+        return {}
 
 
 def run_spider(spider_name):
@@ -39,26 +59,37 @@ def run_spider(spider_name):
             if path not in sys.path:
                 sys.path.insert(0, path)
 
+        # Load spider configuration
+        spider_configs = load_spider_config()
+        if spider_name not in spider_configs:
+            logger.error(f"Spider {spider_name} not found in configuration")
+            return False
+
+        config = spider_configs[spider_name]
+
         # Import the spider module dynamically
         try:
-            spider_module = importlib.import_module(
-                f"spiders.{spider_name}_spider"
-            )
+            module_name = config.get("module", f"spiders.{spider_name}_spider")
+            class_name = config.get("class")
+
+            spider_module = importlib.import_module(module_name)
             spider_class = None
 
-            # Find the spider class
-            for attr_name in dir(spider_module):
-                attr = getattr(spider_module, attr_name)
-                if isinstance(attr, type) and attr_name.lower().endswith(
-                    "spider"
-                ):
-                    spider_class = attr
-                    break
+            if class_name:
+                # Use the class name from config
+                spider_class = getattr(spider_module, class_name, None)
+            else:
+                # Find the spider class by naming convention
+                for attr_name in dir(spider_module):
+                    attr = getattr(spider_module, attr_name)
+                    if isinstance(attr, type) and attr_name.lower().endswith(
+                        "spider"
+                    ):
+                        spider_class = attr
+                        break
 
             if not spider_class:
-                logger.error(
-                    f"Could not find spider class in {spider_name}_spider.py"
-                )
+                logger.error(f"Could not find spider class for {spider_name}")
                 return False
 
             # Create a spider instance
@@ -92,9 +123,25 @@ def run_spider(spider_name):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        logger.error("Usage: python spider_runner.py <spider_name>")
+    if len(sys.argv) != 2 or sys.argv[1] == "--help" or sys.argv[1] == "-h":
+        logger.info("Usage: python spider_runner.py <spider_name>")
+        logger.info("       python spider_runner.py --list")
+        logger.info("")
+        logger.info("Options:")
+        logger.info("  --list, -l    List available spiders")
         sys.exit(1)
+
+    if sys.argv[1] == "--list" or sys.argv[1] == "-l":
+        spider_configs = load_spider_config()
+        if not spider_configs:
+            logger.info("No spiders found in configuration")
+        else:
+            logger.info("Available spiders:")
+            for spider_id, config in spider_configs.items():
+                logger.info(
+                    f"  - {spider_id}: {config.get('name', 'Unnamed')} - {config.get('description', 'No description')}"
+                )
+        sys.exit(0)
 
     spider_name = sys.argv[1]
     success = run_spider(spider_name)

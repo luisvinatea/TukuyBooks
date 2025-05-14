@@ -7,6 +7,14 @@
       "module": "backend.spiders.python_docs_spider",
       "class": "PythonDocsSpider",
       "output_prefix": "Python3Docs"
+    },
+    {
+      "id": "mdn_docs",
+      "name": "MDN JavaScript Documentation",
+      "description": "Scrapes MDN Web Docs for JavaScript documentation",
+      "module": "backend.spiders.mdn_docs_spider",
+      "class": "MDNDocsSpider",
+      "output_prefix": "MDNJavaScriptDocs"
     }
   ]
 }

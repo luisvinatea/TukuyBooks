@@ -6,6 +6,7 @@ into EPUB and PDF formats.
 import json
 import os
 import logging
+import sys
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -274,3 +275,30 @@ class PythonDocsEbookMaker(EbookMaker):
             "extending-index": "extending-and-embedding-the-python-interpreter",
             "c-api-index": "python-c-api-reference-manual",
         }
+
+
+# Add a CLI to run the ebook maker
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
+    if len(sys.argv) < 2:
+        print("Usage: python make_ebook.py <spider_id> [output_filename]")
+        sys.exit(1)
+
+    spider_id = sys.argv[1]
+    output_filename = sys.argv[2] if len(sys.argv) > 2 else None
+
+    # Check if the spider ID is valid
+    if spider_id == "python_docs":
+        maker = PythonDocsEbookMaker()
+        maker.create_epub(output_filename)
+    elif spider_id == "mdn_docs":
+        # Import here to avoid circular imports
+        from mdn_ebook_maker import MDNEbookMaker
+
+        maker = MDNEbookMaker()
+        maker.create_epub(output_filename)
+    else:
+        print(f"Unknown spider ID: {spider_id}")
+        print("Supported IDs: python_docs, mdn_docs")
+        sys.exit(1)
