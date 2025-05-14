@@ -32,6 +32,18 @@ class EbookMaker:
         self.anchor_map = {}  # Override in subclasses if needed
         self.logger = logging.getLogger(__name__)
 
+    def _process_content(self, content):
+        """Base method for processing HTML content. Should be overridden by subclasses.
+
+        Args:
+            content: The HTML content to process (can be a Tag or string)
+
+        Returns:
+            None: The content is modified in place if it's a Tag.
+        """
+        # Base implementation does nothing
+        return
+
     def load_chapters(self):
         """Load and sort chapters from JSON Lines file.
 
@@ -253,16 +265,33 @@ class EbookMaker:
             self.logger.error("No chapters found!")
             return None
 
-        book = self.init_book()
-        url_to_filename, epub_chapters = self.create_items(chapters, book)
-        self.fix_internal_links(chapters, epub_chapters, url_to_filename)
-        self.add_toc(book, epub_chapters, chapters)
+        try:
+            self.logger.info(
+                f"Initializing book with {len(chapters)} chapters"
+            )
+            book = self.init_book()
 
-        # Write the EPUB file
-        epub.write_epub(output_path, book, {})
-        self.logger.info(f"EPUB created at {output_path}")
+            self.logger.info("Creating items")
+            url_to_filename, epub_chapters = self.create_items(chapters, book)
 
-        return output_path
+            self.logger.info("Fixing internal links")
+            self.fix_internal_links(chapters, epub_chapters, url_to_filename)
+
+            self.logger.info("Building table of contents")
+            self.add_toc(book, epub_chapters, chapters)
+
+            # Write the EPUB file
+            self.logger.info(f"Writing EPUB to {output_path}")
+            epub.write_epub(output_path, book, {})
+            self.logger.info(f"EPUB created at {output_path}")
+
+            return output_path
+        except Exception as e:
+            self.logger.error(f"Error creating EPUB: {e}")
+            import traceback
+
+            self.logger.error(traceback.format_exc())
+            return None
 
 
 class PythonDocsEbookMaker(EbookMaker):
