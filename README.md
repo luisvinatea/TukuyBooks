@@ -22,6 +22,20 @@ docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_d
 
 The generated ebooks will be available in your local `./outputs` directory.
 
+### Using Docker Hub (Official Image)
+
+You can also use our official Docker Hub image:
+
+```bash
+# Pull the image
+docker pull luisvinatea/tukuybooks:latest
+
+# Run the full pipeline
+docker run -v $(pwd)/outputs:/app/backend/outputs luisvinatea/tukuybooks:latest all python_docs
+```
+
+For more details, see our [Docker Guide](DOCKER.md).
+
 ## Online Interface
 
 The TukuyBooks web interface allows you to:
