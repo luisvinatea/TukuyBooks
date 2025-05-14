@@ -178,70 +178,14 @@ class EbookMaker:
             epub_chapters (list): List of EpubHtml objects.
             chapters (list): List of chapter dictionaries.
         """
+        # Create a simple flat TOC - more reliable across different datasets
         toc = []
+        for epub_chap in epub_chapters:
+            toc.append(epub_chap)
 
-        # Simple flat TOC as a safe fallback if there aren't enough chapters for nested structure
-        if len(chapters) <= 5:
-            for epub_chap in epub_chapters:
-                toc.append(epub_chap)
-            book.toc = toc
-            return
-
-        # Build nested TOC structure for larger documents
-        current_l1 = None
-        current_l1_item = None
-        current_l2 = []
-
-        for i, (chap, epub_chap) in enumerate(zip(chapters, epub_chapters)):
-            level = chap.get("level", 1)
-
-            if level == 1:
-                # If we have a previous L1 item with L2 items, finalize it
-                if current_l1_item and current_l2:
-                    current_l1_item.append(current_l2)
-
-                # Start a new L1 section
-                current_l1 = epub_chap
-                current_l1_item = [epub_chap]
-                current_l2 = []
-                toc.append(current_l1_item)
-            elif level == 2 and current_l1:
-                # Add to the current L2 collection
-                current_l2.append(epub_chap)
-            else:  # Level 3 or no parent
-                if not current_l1:
-                    # Orphaned item, add directly to TOC
-                    toc.append(epub_chap)
-                else:
-                    # Add to most recent L2 if possible, otherwise to L1
-                    if current_l2:
-                        current_l2.append(epub_chap)
-                    else:
-                        current_l1_item.append(epub_chap)
-
-        # Add any remaining L2 items to their parent L1
-        if current_l1_item and current_l2:
-            current_l1_item.append(current_l2)
-
-        # Add TOC to book
         book.toc = toc
 
-        # Add default NCX and Navigation files
-        book.add_item(epub.EpubNcx())
-        book.add_item(epub.EpubNav())
-
-        # Define CSS
-        style = "body { font-family: Arial, sans-serif; }"
-        nav_css = epub.EpubItem(
-            uid="style_nav",
-            file_name="style/nav.css",
-            media_type="text/css",
-            content=style,
-        )
-        book.add_item(nav_css)
-
-        # Create spine
-        book.spine = ["nav"] + epub_chapters
+        self.logger.info(f"Created simple TOC with {len(toc)} entries")
 
     def create_epub(self, output_filename=None):
         """Create an EPUB file from scraped data.
