@@ -5,12 +5,10 @@ for MDN JavaScript documentation.
 
 import sys
 import os
-import logging
-from bs4 import BeautifulSoup, Tag
+from bs4 import Tag
 
 # Add absolute import for EbookMaker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import make_ebook
 from make_ebook import EbookMaker
 
 
