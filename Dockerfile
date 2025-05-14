@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the backend files
 COPY backend/ ./backend/
 
-# Create output directory
-RUN mkdir -p backend/outputs
+# Create output directory with proper permissions
+RUN mkdir -p backend/outputs && chmod 777 backend/outputs
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh .
