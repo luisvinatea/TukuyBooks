@@ -1,1 +1,0 @@
-backend/scripts/tukuy_ebook_maker.py
