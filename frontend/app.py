@@ -212,93 +212,88 @@ def run_spider_with_progress(spider_id):
     progress_bar = st.progress(0.0)
     output_area = st.empty()
 
-    # Create a list to capture output
-    output = []
+    # Set up the progress tracking
+    progress_text.write("Starting spider...")
+    progress_bar.progress(0.05)
 
-    # Set up console redirect
-    import io
-    import contextlib
-    from threading import Thread
-    import time
+    # Create a subprocess to run the spider with output capture
+    import subprocess
+    import sys
+    import os
 
-    # Create a StringIO object to capture stdout
-    stdout_capture = io.StringIO()
-
-    # Function to periodically check for new output
-    def update_ui_from_capture():
-        last_pos = 0
-        stages = {
-            "Starting crawl": 0.1,
-            "Crawling page": 0.3,
-            "Processing items": 0.7,
-            "Finished crawl": 0.95,
-        }
-
-        while True:
-            # Get any new output
-            stdout_capture.seek(last_pos)
-            new_output = stdout_capture.read()
-
-            if new_output:
-                lines = new_output.splitlines()
-                for line in lines:
-                    if line.strip():
-                        output.append(line.strip())
-
-                        # Update progress based on keywords
-                        for keyword, value in stages.items():
-                            if keyword in line:
-                                progress_bar.progress(value)
-                                break
-
-                # Update the UI
-                progress_text.write(
-                    f"Progress: {output[-1] if output else 'Starting...'}"
-                )
-                output_area.code("\n".join(output[-20:]))  # Show last 20 lines
-
-                # Update position
-                last_pos = stdout_capture.tell()
-
-            # Check if the thread should exit
-            if (
-                hasattr(update_ui_from_capture, "stop")
-                and update_ui_from_capture.stop
-            ):
-                break
-
-            time.sleep(0.1)
-
-    # Start the UI update thread
-    update_thread = Thread(target=update_ui_from_capture)
-    update_thread.daemon = True
-    update_thread.start()
+    # Command to run the spider through a Python subprocess
+    cmd = [
+        sys.executable,
+        os.path.join(BACKEND_SCRIPTS_DIR, "spider_runner.py"),
+        spider_id,
+    ]
 
     try:
-        progress_text.write("Starting spider...")
-        progress_bar.progress(0.05)
+        # Run the process and capture output
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+        )
 
-        # Redirect stdout to our capture
-        with contextlib.redirect_stdout(stdout_capture):
-            success = spider_runner.run_spider(spider_id)
+        # Process output in real time
+        output = []
+        for line in iter(process.stdout.readline, ""):
+            line = line.strip()
+            if line:
+                output.append(line)
 
-        if success:
-            progress_bar.progress(1.0)
-            progress_text.write("Spider completed successfully!")
+                # Update UI with latest output
+                output_area.code("\n".join(output[-20:]))
+
+                # Update progress based on keywords
+                if "Starting spider" in line:
+                    progress_bar.progress(0.1)
+                    progress_text.write(
+                        f"Progress: Starting spider {spider_id}"
+                    )
+                elif "Looking for config" in line:
+                    progress_bar.progress(0.2)
+                    progress_text.write("Progress: Locating configuration")
+                elif "Successfully loaded config" in line:
+                    progress_bar.progress(0.3)
+                    progress_text.write("Progress: Configuration loaded")
+                elif "Setting up crawler" in line:
+                    progress_bar.progress(0.4)
+                    progress_text.write("Progress: Setting up crawler")
+                elif "Starting crawl with spider" in line:
+                    progress_bar.progress(0.5)
+                    progress_text.write("Progress: Starting web crawl")
+                elif "Processing items" in line:
+                    progress_bar.progress(0.7)
+                    progress_text.write("Progress: Processing scraped items")
+                elif "Finished crawl" in line:
+                    progress_bar.progress(0.9)
+                    progress_text.write("Progress: Finishing crawl")
+                elif "Spider" in line and "finished successfully" in line:
+                    progress_bar.progress(1.0)
+                    progress_text.write(
+                        "Progress: Spider completed successfully!"
+                    )
+
+        # Wait for process to complete
+        process.wait()
+
+        # Check return code
+        if process.returncode == 0:
+            success = True
+            if not any("finished successfully" in line for line in output):
+                progress_bar.progress(1.0)
+                progress_text.write("Spider completed successfully!")
         else:
+            success = False
             progress_text.write("Spider failed or not found.")
 
-        # Stop the UI update thread
-        update_ui_from_capture.stop = True
-        update_thread.join(timeout=1.0)
-
         return success, "\n".join(output)
-    except Exception as e:
-        # Stop the UI update thread
-        if "update_ui_from_capture" in locals():
-            update_ui_from_capture.stop = True
-            update_thread.join(timeout=1.0)
 
+    except Exception as e:
         progress_text.write(f"Error running spider: {str(e)}")
         return False, str(e)
 
@@ -309,115 +304,105 @@ def create_ebook_with_progress(spider_id, output_filename=None):
     progress_bar = st.progress(0.0)
     output_area = st.empty()
 
-    # Create a list to capture output
+    # Capture print outputs to display in the UI
     output = []
-
-    # Set up console redirect
-    import io
-    import contextlib
-    from threading import Thread
-    import time
-
-    # Create a StringIO object to capture stdout
-    stdout_capture = io.StringIO()
-
-    # Function to periodically check for new output
-    def update_ui_from_capture():
-        last_pos = 0
-
-        while True:
-            # Get any new output
-            stdout_capture.seek(last_pos)
-            new_output = stdout_capture.read()
-
-            if new_output:
-                lines = new_output.splitlines()
-                for line in lines:
-                    if line.strip():
-                        output.append(line.strip())
-
-                # Update the UI
-                if output:
-                    output_area.code(
-                        "\n".join(output[-20:])
-                    )  # Show last 20 lines
-
-                # Update position
-                last_pos = stdout_capture.tell()
-
-            # Check if the thread should exit
-            if (
-                hasattr(update_ui_from_capture, "stop")
-                and update_ui_from_capture.stop
-            ):
-                break
-
-            time.sleep(0.1)
-
-    # Start the UI update thread
-    update_thread = Thread(target=update_ui_from_capture)
-    update_thread.daemon = True
-    update_thread.start()
 
     try:
         progress_text.write("Initializing ebook creation...")
         progress_bar.progress(0.1)
 
-        # Select the correct EbookMaker class
-        if spider_id == "python_docs":
-            maker = tukuy_ebook_maker.PythonDocsEbookMaker()
-        elif spider_id == "mdn_docs":
-            maker = tukuy_ebook_maker.MDNEbookMaker()
-        elif spider_id == "react_docs":
-            maker = tukuy_ebook_maker.ReactEbookMaker()
+        # Create a subprocess to make the ebook
+        import subprocess
+        import sys
+        import os
+
+        # Command to create the ebook
+        cmd = [
+            sys.executable,
+            os.path.join(BACKEND_SCRIPTS_DIR, "tukuy_ebook_maker.py"),
+            "--make-ebook",
+            spider_id,
+        ]
+
+        # Add output filename if specified
+        if output_filename:
+            base_name = output_filename.replace(".epub", "")
+            cmd.extend(["--output", base_name])
+
+        # Run the process
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+        )
+
+        # Process output in real time
+        result_path = None
+        for line in iter(process.stdout.readline, ""):
+            line = line.strip()
+            if line:
+                output.append(line)
+
+                # Update UI with latest output
+                output_area.code("\n".join(output[-20:]))
+
+                # Update progress based on keywords
+                if "Initializing book" in line:
+                    progress_bar.progress(0.3)
+                    progress_text.write("Progress: Initializing ebook")
+                elif "Loading chapters" in line:
+                    progress_bar.progress(0.4)
+                    progress_text.write("Progress: Loading chapters")
+                elif "Processing chapters" in line:
+                    progress_bar.progress(0.6)
+                    progress_text.write("Progress: Processing chapters")
+                elif "Writing EPUB" in line:
+                    progress_bar.progress(0.8)
+                    progress_text.write("Progress: Writing EPUB file")
+                elif "EPUB created successfully" in line:
+                    progress_bar.progress(1.0)
+                    progress_text.write("Progress: EPUB created successfully!")
+                    # Try to extract the path from the output
+                    import re
+
+                    match = re.search(
+                        r"EPUB created successfully: (.*?) \(", line
+                    )
+                    if match:
+                        result_path = match.group(1)
+                elif "Failed to create EPUB" in line:
+                    progress_text.write("Failed to create EPUB")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Find the result path if not found in output
+        if process.returncode == 0 and not result_path:
+            # Try to find the created EPUB file
+            epub_dir = os.path.join(PROJECT_ROOT, "backend", "outputs")
+            expected_name = f"{spider_id}.epub"
+            if output_filename:
+                expected_name = output_filename
+
+            full_path = os.path.join(epub_dir, expected_name)
+            if os.path.exists(full_path):
+                result_path = full_path
+
+        # Check return code
+        if process.returncode == 0 and result_path:
+            progress_bar.progress(1.0)
+            progress_text.write(
+                f"EPUB created: {os.path.basename(result_path)}"
+            )
+            return True, result_path
         else:
-            progress_text.write(f"Unknown spider ID: {spider_id}")
-            return False, f"Unknown spider ID: {spider_id}"
-
-        # Show loading chapters
-        progress_text.write("Loading chapters...")
-        progress_bar.progress(0.2)
-
-        # Override the create_epub method to provide progress updates
-        original_create_epub = maker.create_epub
-
-        def create_epub_with_progress(output_filename=None):
-            # Call original method but update progress
-            progress_text.write("Processing chapters...")
-            progress_bar.progress(0.4)
-
-            # Use our stdout capture
-            with contextlib.redirect_stdout(stdout_capture):
-                result = original_create_epub(output_filename)
-
-            if result:
-                progress_text.write(f"EPUB created: {result}")
-                progress_bar.progress(1.0)
-            else:
-                progress_text.write("Failed to create EPUB")
-
-            return result
-
-        maker.create_epub = create_epub_with_progress
-
-        # Create the ebook
-        result = maker.create_epub(output_filename)
-
-        # Stop the UI update thread
-        update_ui_from_capture.stop = True
-        update_thread.join(timeout=1.0)
-
-        if result:
-            return True, result
-        else:
+            progress_text.write("Failed to create EPUB")
             return False, "\n".join(output) or "Failed to create EPUB"
+
     except Exception as e:
         import traceback
-
-        # Stop the UI update thread if it exists
-        if "update_ui_from_capture" in locals():
-            update_ui_from_capture.stop = True
-            update_thread.join(timeout=1.0)
 
         progress_text.write(f"Error creating ebook: {str(e)}")
         return False, traceback.format_exc()

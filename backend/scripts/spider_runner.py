@@ -26,17 +26,27 @@ def load_spider_config():
         dict: Dictionary of spider configurations by ID
     """
     # Try the path depending on where we're running from
+    current_dir = Path(__file__).resolve().parent
+    project_root = current_dir.parent.parent
+
     possible_paths = [
+        os.path.join(
+            project_root, "backend", "spiders", "config.json"
+        ),  # Absolute path
         os.path.join("backend", "spiders", "config.json"),  # From project root
         os.path.join("spiders", "config.json"),  # From backend directory
         os.path.join("..", "spiders", "config.json"),  # From scripts directory
     ]
 
     for config_path in possible_paths:
+        # Print the path for debugging
+        print(f"Looking for config.json at: {os.path.abspath(config_path)}")
+
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r") as f:
                     config = json.load(f)
+                    print(f"Successfully loaded config from {config_path}")
                     return {
                         spider["id"]: spider
                         for spider in config.get("spiders", [])
@@ -222,24 +232,29 @@ def run_spider(spider_name):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1] == "--help" or sys.argv[1] == "-h":
-        logger.info("Usage: python spider_runner.py <spider_name>")
-        logger.info("       python spider_runner.py --list")
-        logger.info("")
-        logger.info("Options:")
-        logger.info("  --list, -l    List available spiders")
+        print("Usage: python spider_runner.py <spider_name>")
+        print("       python spider_runner.py --list")
+        print("")
+        print("Options:")
+        print("  --list, -l    List available spiders")
         sys.exit(1)
 
     if sys.argv[1] == "--list" or sys.argv[1] == "-l":
         spider_configs = load_spider_config()
         if not spider_configs:
-            logger.info("No spiders found in configuration")
+            print("No spiders found in configuration")
         else:
-            logger.info("Available spiders:")
+            print("Available spiders:")
             for spider_id, config in spider_configs.items():
-                logger.info(
+                print(
                     f"  - {spider_id}: {config.get('name', 'Unnamed')} - {config.get('description', 'No description')}"
                 )
         sys.exit(0)
+
+    # Run the specified spider
+    spider_name = sys.argv[1]
+    success = run_spider(spider_name)
+    sys.exit(0 if success else 1)
 
     spider_name = sys.argv[1]
     success = run_spider(spider_name)
