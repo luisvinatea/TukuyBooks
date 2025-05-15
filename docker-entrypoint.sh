@@ -30,10 +30,10 @@ case "$COMMAND" in
     python scripts/tukuy_ebook_maker.py --make-ebook "$SPIDER"
     ;;
 
-"optimize")
-    echo "Optimizing ebooks"
+"convert")
+    echo "Converting ebooks"
     cd backend
-    python scripts/tukuy_ebook_maker.py --optimize
+    python scripts/tukuy_ebook_maker.py --convert
     ;;
 
 "unified")
@@ -44,16 +44,16 @@ case "$COMMAND" in
     ;;
 
 "all")
-    echo "Running full pipeline: crawl -> make-ebook -> optimize"
+    echo "Running full pipeline: crawl -> make-ebook -> convert"
     cd backend
 
     # Use the unified ebook maker for the full pipeline
     echo "Running unified ebook maker pipeline for $SPIDER"
-    python scripts/tukuy_ebook_maker.py --spider "$SPIDER" --make-ebook "$SPIDER" --optimize
+    python scripts/tukuy_ebook_maker.py --spider "$SPIDER" --make-ebook "$SPIDER" --convert
     ;;
 
 "legacy-all")
-    echo "Running legacy full pipeline: crawl -> make-ebook -> optimize"
+    echo "Running legacy full pipeline: crawl -> make-ebook -> convert"
     cd backend
 
     # Run the spider
@@ -66,16 +66,16 @@ case "$COMMAND" in
     python make_ebook.py "$SPIDER"
     cd ..
 
-    # Optimize the ebook
-    echo "Step 3: Optimizing ebook"
-    ./scripts/book_converter.sh "./outputs" "./outputs/optimized"
+    # Convert the ebook
+    echo "Step 3: converting ebook"
+    ./scripts/book_converter.sh "./outputs" "./outputs/converted"
     ;;
 
 "help" | *)
     echo "Available commands:"
     echo "  crawl [spider_name]    - Run a spider (default: python_docs)"
     echo "  make-ebook [spider_id] - Create an ebook from spider data"
-    echo "  optimize               - Optimize the generated ebooks"
+    echo "  convert               -  Convert the generated ebooks"
     echo "  all [spider_name]      - Run the full pipeline with unified tool"
     echo "  legacy-all [spider]    - Run full pipeline with original tools"
     echo "  unified [options]      - Run the unified ebook maker directly"
@@ -85,7 +85,7 @@ case "$COMMAND" in
     echo "  --list                - List available spiders"
     echo "  --spider SPIDER_ID    - Run the specified spider"
     echo "  --make-ebook SPIDER_ID - Create an ebook"
-    echo "  --optimize            - Optimize ebooks"
+    echo "  --convert               - Convert the generated ebooks"
     echo "  --all                 - Run complete workflow for all spiders"
     echo "  --output OUTPUT       - Specify output filename"
     echo ""
