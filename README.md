@@ -91,8 +91,30 @@ The generated ebooks will be available in your local `./outputs` directory.
 
 - **Web Scraping**: Capture documentation from open-source websites with custom spiders
 - **Ebook Generation**: Transform web content into EPUB and PDF formats with proper formatting
+- **Enhanced PDF Conversion**: Convert EPUB files to PDF with configurable styling and formatting options
 - **Real-time Status Updates**: Monitor scraping progress with real-time notifications
 - **Offline Reading**: Download ebooks for offline reading on e-readers or other devices
+
+## EPUB to PDF Conversion
+
+TukuyBooks provides enhanced PDF conversion capabilities:
+
+```bash
+# Convert EPUB to PDF using the interactive interface
+./backend/scripts/book_converter.sh
+
+# Non-interactive conversion (useful for automation)
+INPUT_EPUB=/path/to/file.epub ./backend/scripts/book_converter.sh
+
+# Parameters can be customized within the script for:
+# - Paper size
+# - Margins
+# - Page numbers
+# - Font embedding
+# - Text justification
+```
+
+In the Streamlit UI, PDF conversion can be performed from the "Convert to PDF" tab, with progress monitoring and automatic error detection.
 
 ## Vision
 
