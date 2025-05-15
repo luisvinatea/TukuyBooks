@@ -71,21 +71,21 @@ TukuyBooks now provides Docker containers for easy local deployment of spider pi
 ./run_docker.sh
 
 # Run the Python documentation spider
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest crawl python_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest crawl python_docs
 
 # Run the MDN JavaScript documentation spider
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest crawl mdn_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest crawl mdn_docs
 
 # Generate an ebook from the scraped data
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest make-ebook python_docs
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest make-ebook mdn_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest make-ebook python_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest make-ebook mdn_docs
 
 # Run the full pipeline (crawl -> make-ebook -> optimize)
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_docs
-docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all mdn_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest all python_docs
+docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest all mdn_docs
 ```
 
-The generated ebooks will be available in your local `./outputs` directory.
+The generated ebooks will be available in your local `./backend/outputs` directory.
 
 ## Features
 

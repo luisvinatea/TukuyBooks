@@ -8,5 +8,5 @@ services:
     image: tukuybooks:latest
     volumes:
       # Mount the outputs directory to persist the generated files
-      - ./outputs:/app/backend/outputs
+      - ./backend/outputs:/app/backend/outputs
     command: help
