@@ -835,24 +835,45 @@ def main():
                     print(f"  {Colors.CYAN}{spider}{Colors.RESET}")
         else:
             print(f"{Colors.YELLOW}No spiders found in config.{Colors.RESET}")
-        return
+        # Don't return, continue processing other arguments
+
+    # Track if the spider operation was successful, for subsequent steps
+    spider_success = False
+    spider_id_used = None
 
     if args.spider:
         spider_id = args.spider
+        spider_id_used = (
+            spider_id  # Remember which spider was used for later steps
+        )
         print(f"{Colors.BLUE}Running spider: {spider_id}{Colors.RESET}")
         success = spider_runner.run_spider(spider_id)
         if success:
             print(
                 f"{Colors.GREEN}Spider '{spider_id}' completed successfully.{Colors.RESET}"
             )
+            spider_success = True
         else:
             print(
                 f"{Colors.RED}Spider '{spider_id}' failed or not found.{Colors.RESET}"
             )
-        return
+        # Don't return, continue processing other arguments
+
+    # Track if make-ebook operation was successful
+    ebook_result = None
 
     if args.make_ebook:
         spider_id = args.make_ebook
+        # If we successfully ran a spider earlier, use that spider's output
+        if spider_success and spider_id_used and spider_id_used == spider_id:
+            print(
+                f"{Colors.BLUE}Creating ebook from just-scraped data: {spider_id}{Colors.RESET}"
+            )
+        else:
+            print(
+                f"{Colors.BLUE}Creating ebook from existing data: {spider_id}{Colors.RESET}"
+            )
+
         output_filename = args.output if args.output else None
 
         # Select the correct EbookMaker class
@@ -864,16 +885,19 @@ def main():
             maker = ReactEbookMaker()
         else:
             print(f"{Colors.RED}Unknown spider ID: {spider_id}{Colors.RESET}")
-            return
+            # Continue with other arguments
 
-        result = maker.create_epub(output_filename)
-        if result:
-            print(f"{Colors.GREEN}EPUB created: {result}{Colors.RESET}")
-        else:
-            print(
-                f"{Colors.RED}Failed to create EPUB for spider '{spider_id}'{Colors.RESET}"
-            )
-        return
+        if maker:
+            ebook_result = maker.create_epub(output_filename)
+            if ebook_result:
+                print(
+                    f"{Colors.GREEN}EPUB created: {ebook_result}{Colors.RESET}"
+                )
+            else:
+                print(
+                    f"{Colors.RED}Failed to create EPUB for spider '{spider_id}'{Colors.RESET}"
+                )
+        # Don't return, continue processing other arguments
 
     if args.convert:
         # Always resolve converter script relative to this script
@@ -882,34 +906,69 @@ def main():
             print(
                 f"{Colors.RED}Converter script not found: {converter_script}{Colors.RESET}"
             )
-            return
-        print(f"{Colors.BLUE}Running book converter...{Colors.RESET}")
+            # Continue processing other arguments if any
+        else:
+            print(f"{Colors.BLUE}Running book converter...{Colors.RESET}")
 
-        # Ensure unbuffered output for tqdm compatibility
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"
+            # Ensure unbuffered output for tqdm compatibility
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            env["DOCKER_CONTAINER"] = "1"  # Ensure non-interactive mode
 
-        # Use subprocess with unbuffered output, forwarding stdout/stderr live
-        process = subprocess.Popen(
-            ["bash", converter_script],
-            cwd=SCRIPT_DIR,
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            bufsize=1,
-        )
-        process.wait()
-        if process.returncode == 0:
-            print(
-                f"{Colors.GREEN}Book conversion completed successfully.{Colors.RESET}"
+            # Use subprocess with unbuffered output, forwarding stdout/stderr live
+            process = subprocess.Popen(
+                ["bash", converter_script],
+                cwd=SCRIPT_DIR,
+                env=env,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                bufsize=1,
+            )
+            process.wait()
+            if process.returncode == 0:
+                print(
+                    f"{Colors.GREEN}Book conversion completed successfully.{Colors.RESET}"
+                )
+            else:
+                print(
+                    f"{Colors.RED}Book conversion failed with exit code {process.returncode}.{Colors.RESET}"
+                )
+        # No return here, allow for additional arguments to be processed
+
+    # Print a summary of what was done
+    print(f"{Colors.BOLD}==== TukuyBooks Process Summary ===={Colors.RESET}")
+    actions_taken = []
+    if args.spider:
+        if spider_success:
+            actions_taken.append(f"✅ Spider '{args.spider}' run successfully")
+        else:
+            actions_taken.append(f"❌ Spider '{args.spider}' failed")
+
+    if args.make_ebook:
+        if ebook_result:
+            actions_taken.append(
+                f"✅ EPUB created: {os.path.basename(ebook_result)}"
             )
         else:
-            print(
-                f"{Colors.RED}Book conversion failed with exit code {process.returncode}.{Colors.RESET}"
-            )
-        return
+            actions_taken.append("❌ EPUB creation failed")
 
-    # ...other CLI logic can be added here...
+    if args.convert:
+        if process.returncode == 0:
+            actions_taken.append("✅ Conversion to PDF completed")
+        else:
+            actions_taken.append(
+                f"❌ Conversion failed with exit code {process.returncode}"
+            )
+
+    if not actions_taken:
+        print(
+            f"{Colors.YELLOW}No actions performed. Use --help to see available options.{Colors.RESET}"
+        )
+    else:
+        for action in actions_taken:
+            print(f"  {action}")
+
+    print(f"{Colors.BOLD}===================================={Colors.RESET}")
 
 
 if __name__ == "__main__":
