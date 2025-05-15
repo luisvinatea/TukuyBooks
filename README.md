@@ -87,6 +87,13 @@ docker run -v $(pwd)/backend/outputs:/app/backend/outputs tukuybooks:latest all 
 
 The generated ebooks will be available in your local `./backend/outputs` directory.
 
+If you need the files in the root outputs directory (for compatibility with older scripts or workflows), you can run:
+
+```bash
+# Sync files from backend/outputs to the root outputs directory
+./sync_outputs.sh
+```
+
 ## Features
 
 - **Web Scraping**: Capture documentation from open-source websites with custom spiders
