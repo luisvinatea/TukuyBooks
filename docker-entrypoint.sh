@@ -49,7 +49,7 @@ case "$COMMAND" in
 
     # Use the unified ebook maker for the full pipeline
     echo "Running unified ebook maker pipeline for $SPIDER"
-    python scripts/tukuy_ebook_maker.py --spider "$SPIDER" --make-ebook "$SPIDER" --convert
+    python scripts/tukuy_ebook_maker.py --all --spider "$SPIDER"
     ;;
 
 "legacy-all")

@@ -723,6 +723,99 @@ def main():
     )
     args = parser.parse_args()
 
+    # Handle --all first to run the complete workflow
+    if args.all:
+        config = load_spider_config()
+        spiders = config.get("spiders", {})
+        # If a specific spider was provided via --spider
+        if args.spider:
+            spider_ids = [args.spider]
+        else:
+            # Otherwise, use all available spiders or just the common ones
+            if isinstance(spiders, dict) and spiders:
+                spider_ids = list(spiders.keys())
+            elif isinstance(spiders, list) and spiders:
+                spider_ids = [
+                    s.get("id") if isinstance(s, dict) else s for s in spiders
+                ]
+            else:
+                # Default to common spiders if config is not available
+                spider_ids = ["python_docs", "mdn_docs", "react_docs"]
+
+        for spider_id in spider_ids:
+            print(
+                f"{Colors.BLUE}Running complete pipeline for: {spider_id}{Colors.RESET}"
+            )
+
+            # Step 1: Run the spider
+            print(
+                f"{Colors.CYAN}Step 1: Crawling data with spider {spider_id}{Colors.RESET}"
+            )
+            success = spider_runner.run_spider(spider_id)
+            if not success:
+                print(
+                    f"{Colors.RED}Spider '{spider_id}' failed. Skipping to next spider.{Colors.RESET}"
+                )
+                continue
+
+            # Step 2: Create the ebook
+            print(
+                f"{Colors.CYAN}Step 2: Creating ebook from spider data{Colors.RESET}"
+            )
+            maker = None
+            if spider_id == "python_docs":
+                maker = PythonDocsEbookMaker()
+            elif spider_id == "mdn_docs":
+                maker = MDNEbookMaker()
+            elif spider_id == "react_docs":
+                maker = ReactEbookMaker()
+            else:
+                print(
+                    f"{Colors.YELLOW}No specific maker for '{spider_id}', skipping.{Colors.RESET}"
+                )
+                continue
+
+            result = maker.create_epub(args.output)
+            if not result:
+                print(
+                    f"{Colors.RED}Failed to create EPUB for '{spider_id}'. Skipping to next spider.{Colors.RESET}"
+                )
+                continue
+
+            # Step 3: Convert the ebook
+            print(
+                f"{Colors.CYAN}Step 3: Converting ebook to PDF{Colors.RESET}"
+            )
+            converter_script = os.path.join(SCRIPT_DIR, "book_converter.sh")
+            if not os.path.isfile(converter_script):
+                print(
+                    f"{Colors.RED}Converter script not found: {converter_script}{Colors.RESET}"
+                )
+                continue
+
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            process = subprocess.Popen(
+                ["bash", converter_script],
+                cwd=SCRIPT_DIR,
+                env=env,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                bufsize=1,
+            )
+            process.wait()
+
+            if process.returncode == 0:
+                print(
+                    f"{Colors.GREEN}Complete pipeline for '{spider_id}' finished successfully!{Colors.RESET}"
+                )
+            else:
+                print(
+                    f"{Colors.RED}Conversion step failed for '{spider_id}' with code {process.returncode}.{Colors.RESET}"
+                )
+
+        return
+
     if args.list:
         config = load_spider_config()
         spiders = config.get("spiders", {})
