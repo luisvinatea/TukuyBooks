@@ -1,5 +1,5 @@
-"""mdn_docs_spider.py
-This module defines a Scrapy spider to scrape MDN Web Docs for JavaScript.
+"""react_docs_spider.py
+This module defines a Scrapy spider to scrape React documentation.
 It extracts chapter information, including titles, URLs, and content,
 and saves it in a structured format for conversion into ebooks.
 """
@@ -11,18 +11,19 @@ from bs4 import BeautifulSoup, Tag
 from .base_spider import BaseDocSpider
 
 
-class MDNDocsSpider(BaseDocSpider):
-    """Scrapy spider to scrape MDN Web Documentation for JavaScript.
+class ReactDocsSpider(BaseDocSpider):
+    """Scrapy spider to scrape React Documentation.
 
-    This spider crawls the MDN Web Docs JavaScript documentation,
+    This spider crawls the React documentation,
     extracting content for conversion to ebook formats.
     """
 
-    name = "mdn_docs"
-    allowed_domains = ["developer.mozilla.org"]
+    name = "react_docs"
+    allowed_domains = ["react.dev"]
     start_urls = [
-        "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide",
-        "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference",
+        "https://react.dev/learn",
+        "https://react.dev/reference/react",
+        "https://react.dev/reference/react-dom",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -41,11 +42,9 @@ class MDNDocsSpider(BaseDocSpider):
 
         # Select links from the sidebar navigation and main content
         all_links = (
-            response.css("nav.sidebar a[href]")
-            + response.css("article.main-page-content a[href]")
-            + response.css("article#content a[href]")
-            + response.css("div.article a[href]")
-            + response.css("main#content a[href]")
+            response.css("nav a[href]")
+            + response.css("article a[href]")
+            + response.css("main a[href]")
         )
 
         for link in all_links:
@@ -93,12 +92,11 @@ class MDNDocsSpider(BaseDocSpider):
         # Create soup from response body
         soup = BeautifulSoup(response.body, "html.parser")
 
-        # Main content selectors - try different ones used in MDN
+        # Main content selectors for React docs
         main_content = (
-            soup.select_one("article.main-page-content")
-            or soup.select_one("article#content")
-            or soup.select_one("div.article")
-            or soup.select_one("main#content")
+            soup.select_one("article")
+            or soup.select_one("main div.prose")
+            or soup.select_one("main[id='content']")
         )
 
         if not main_content:
@@ -140,7 +138,7 @@ class MDNDocsSpider(BaseDocSpider):
             "internal_links": internal_links,
         }
 
-        # Yield the item instead of returning it, so Scrapy can save it
+        # Yield the item so Scrapy can save it
         yield item
 
     def _is_valid_link(self, url):
@@ -161,20 +159,19 @@ class MDNDocsSpider(BaseDocSpider):
             if not any(domain in url for domain in self.allowed_domains):
                 return False
 
-        # Only process JavaScript documentation
-        if "/docs/Web/JavaScript/" not in url:
+        # Only process React documentation
+        if not any(path in url for path in ["/learn/", "/reference/"]):
             return False
 
-        # Skip edit, revision history, and contributor pages
+        # Skip edit pages, blog entries, and other non-documentation pages
         if any(
             x in url
             for x in [
-                "$edit",
-                "$history",
-                "contributors.txt",
-                "/tag/",
-                "/docs/MDN/",
-                "/docs/Learn/",
+                "/blog/",
+                "/community/",
+                "github.com",
+                "/docs/error-",
+                "/playground",
             ]
         ):
             return False
@@ -191,16 +188,18 @@ class MDNDocsSpider(BaseDocSpider):
         Returns:
             int: Priority value (lower is higher priority).
         """
-        # Main guide pages get highest priority
-        if "/Guide/" in url:
+        # Main learn pages get highest priority
+        if "/learn/" in url:
+            if "quick-start" in url or "tutorial" in url:
+                return 50
             return 100
 
-        # Reference pages come next
-        if "/Reference/" in url:
+        # Core reference pages come next
+        if "/reference/react" in url and "/reference/react-dom" not in url:
             return 200
 
-        # Built-in objects are important
-        if "/Global_Objects/" in url:
+        # React DOM reference pages
+        if "/reference/react-dom" in url:
             return 300
 
         # Default priority
@@ -215,14 +214,11 @@ class MDNDocsSpider(BaseDocSpider):
         Returns:
             int: Level value (1 is top level, higher numbers are deeper nesting).
         """
-        # Check URL depth to determine nesting level
-        path = (
-            url.split("/docs/Web/JavaScript/")[1]
-            if "/docs/Web/JavaScript/" in url
-            else ""
-        )
+        # Remove domain part and split by slashes
+        path = url.replace("https://react.dev", "")
         segments = [s for s in path.split("/") if s.strip()]
 
+        # Calculate level based on path depth
         if len(segments) <= 1:
             return 1
         elif len(segments) == 2:

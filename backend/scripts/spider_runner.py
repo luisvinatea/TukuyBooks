@@ -138,10 +138,14 @@ def run_spider(spider_name):
 
             settings = get_project_settings()
             settings.set("FEED_FORMAT", "jsonlines")
-            settings.set(
-                "FEED_URI",
-                os.path.join("backend", "outputs", f"{spider_name}.jl"),
+
+            # Always resolve output path relative to project root
+            project_root = Path(__file__).resolve().parents[2]
+            output_path = os.path.join(
+                project_root, "backend", "outputs", f"{spider_name}.jl"
             )
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            settings.set("FEED_URI", output_path)
 
             process = CrawlerProcess(settings)
             process.crawl(spider_class)  # Pass the class, not an instance

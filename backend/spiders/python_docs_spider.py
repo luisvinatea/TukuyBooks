@@ -451,3 +451,16 @@ class PythonDocsSpider(scrapy.Spider):
             return 900
         # Default priority
         return 100
+
+    def close(self, reason):
+        """Called when the spider finishes. Writes all collected chapters to the output file."""
+        outputs_path = os.path.join("backend", "outputs", "python_docs.jl")
+        if self.chapters:
+            with open(outputs_path, "w", encoding="utf-8") as f:
+                for item in self.chapters:
+                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
+            self.logger.info(
+                f"Wrote {len(self.chapters)} chapters to {outputs_path}"
+            )
+        else:
+            self.logger.warning("No chapters collected to write.")

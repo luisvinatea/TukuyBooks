@@ -15,6 +15,14 @@
       "module": "backend.spiders.mdn_docs_spider",
       "class": "MDNDocsSpider",
       "output_prefix": "MDNJavaScriptDocs"
+    },
+    {
+      "id": "react_docs",
+      "name": "React Documentation",
+      "description": "Scrapes React documentation from react.dev",
+      "module": "backend.spiders.react_docs_spider",
+      "class": "ReactDocsSpider",
+      "output_prefix": "ReactDocs"
     }
   ]
 }

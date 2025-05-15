@@ -13,8 +13,8 @@ Usage:
 Options:
     --spider SPIDER_ID    Run the specified spider before creating ebooks
     --make-ebook SPIDER_ID    Create an ebook from the specified spider's output
-    --optimize            Optimize the generated ebooks
-    --all                 Run the complete workflow (scrape, make ebook, optimize)
+    --convert            Convert an EPUB to PDF using book_converter.sh
+    --all                 Run the complete workflow (scrape, make ebook, convert)
     --list                List available spiders
     --output OUTPUT       Specify output filename (without extension)
     --help                Show this help message and exit
@@ -24,15 +24,22 @@ import sys
 import os
 import logging
 import json
+import traceback
+import platform
 import argparse
 import subprocess
-import traceback
-import time
-import platform
-import math
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+import importlib.util
+
+# Import spider_runner from the same directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+import spider_runner  # noqa: E402
+
+# Determine project root (two levels up from this script)
+PROJECT_ROOT = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
 
 # Check if we're running in a terminal that supports colors
 COLORS_SUPPORTED = sys.stdout.isatty() and platform.system() != "Windows"
@@ -50,12 +57,11 @@ class Colors:
     CYAN = "\033[96m" if COLORS_SUPPORTED else ""
 
 
-try:
+# Check for tqdm availability using importlib.util.find_spec instead of direct import
+TQDM_AVAILABLE = importlib.util.find_spec("tqdm") is not None
+if TQDM_AVAILABLE:
     from tqdm import tqdm
-
-    TQDM_AVAILABLE = True
-except ImportError:
-    TQDM_AVAILABLE = False
+else:
     print(
         f"{Colors.YELLOW}Warning: tqdm is not installed. Progress bars will be disabled.{Colors.RESET}"
     )
@@ -88,7 +94,10 @@ class EbookMaker:
         self.title = title
         self.author = author
         self.language = language
-        self.input_file = os.path.join("backend", "outputs", f"{spider_id}.jl")
+        # Always resolve input/output relative to project root
+        self.input_file = os.path.join(
+            PROJECT_ROOT, "backend", "outputs", f"{spider_id}.jl"
+        )
         self.anchor_map = {}  # Override in subclasses if needed
         self.logger = logging.getLogger(__name__)
 
@@ -252,7 +261,10 @@ class EbookMaker:
         if output_filename is None:
             output_filename = f"{self.spider_id}.epub"
 
-        output_path = os.path.join("backend", "outputs", output_filename)
+        # Always resolve output path relative to project root
+        output_path = os.path.join(
+            PROJECT_ROOT, "backend", "outputs", output_filename
+        )
 
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -260,12 +272,17 @@ class EbookMaker:
         chapters = self.load_chapters()
         if not chapters:
             self.logger.error("No chapters found!")
+            print(f"{Colors.RED}No chapters found!{Colors.RESET}")
             return None
 
         try:
             self.logger.info(
                 f"Initializing book with {len(chapters)} chapters"
             )
+            print(
+                f"{Colors.BLUE}Initializing book with {len(chapters)} chapters{Colors.RESET}"
+            )
+
             book = self.init_book()
 
             # Create chapters
@@ -278,15 +295,22 @@ class EbookMaker:
                 url_to_filename[chap["url"]] = fname
 
             # Second pass: Process chapters and add to book
-            for i, chap in enumerate(chapters):
-                # Clean the HTML content using our improved method
+            iterator = (
+                tqdm(
+                    enumerate(chapters),
+                    total=len(chapters),
+                    desc="Processing chapters",
+                )
+                if TQDM_AVAILABLE
+                else enumerate(chapters)
+            )
+            for i, chap in iterator:
                 chapter_title = chap.get("title", f"Chapter {i + 1}")
                 soup = self.clean_html_content(
                     chap["content"], chapter_title, i
                 )
 
                 try:
-                    # Process internal links
                     for element in soup.find_all("a", href=True):
                         raw_href = element.attrs.get("href", "")
                         new_href = self.rewrite_href(
@@ -298,19 +322,17 @@ class EbookMaker:
                         if new_href:
                             element["href"] = new_href
 
-                    # Apply any additional content processing
                     self._process_content(soup)
-
-                    # Get the content as string
                     content = str(soup)
                 except Exception as e:
                     self.logger.warning(
                         f"Error processing links for chapter {i + 1} '{chapter_title}': {e}"
                     )
-                    # Use the soup as is even if link processing failed
+                    print(
+                        f"{Colors.YELLOW}Warning: Error processing links for chapter {i + 1} '{chapter_title}': {e}{Colors.RESET}"
+                    )
                     content = str(soup)
 
-                # Create the chapter with the processed content
                 c = epub.EpubHtml(
                     title=chapter_title,
                     file_name=url_to_filename[chap["url"]],
@@ -318,7 +340,6 @@ class EbookMaker:
                     content=content,
                 )
 
-                # Add to book
                 book.add_item(c)
                 epub_chapters.append(c)
 
@@ -371,28 +392,35 @@ class EbookMaker:
 
             # Write to file
             self.logger.info(f"Writing EPUB to {output_path}")
+            print(f"{Colors.BLUE}Writing EPUB to {output_path}{Colors.RESET}")
 
-            # Check if the output file already exists and remove it
             if os.path.exists(output_path):
                 os.remove(output_path)
                 self.logger.info(f"Removed existing file: {output_path}")
+                print(
+                    f"{Colors.YELLOW}Removed existing file: {output_path}{Colors.RESET}"
+                )
 
             epub.write_epub(output_path, book, {})
 
-            # Verify the file was created and log its size
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
                 self.logger.info(
                     f"EPUB created successfully: {output_path} ({file_size} bytes)"
                 )
+                print(
+                    f"{Colors.GREEN}EPUB created successfully: {output_path} ({file_size} bytes){Colors.RESET}"
+                )
                 return output_path
             else:
                 self.logger.error("Failed to create EPUB file")
+                print(f"{Colors.RED}Failed to create EPUB file{Colors.RESET}")
                 return None
 
         except Exception as e:
             self.logger.error(f"Error creating EPUB: {e}")
             self.logger.error(traceback.format_exc())
+            print(f"{Colors.RED}Error creating EPUB: {e}{Colors.RESET}")
             return None
 
 
@@ -557,837 +585,239 @@ class MDNEbookMaker(EbookMaker):
             self.logger.warning(f"Error processing MDN content: {e}")
 
 
+class ReactEbookMaker(EbookMaker):
+    """Class for creating ebooks from React documentation."""
+
+    def __init__(
+        self,
+        spider_id="react_docs",
+        title="React Documentation",
+        author="React Team and Contributors",
+        language="en",
+    ):
+        """Initialize ReactEbookMaker with metadata."""
+        super().__init__(spider_id, title, author, language)
+
+    def _process_content(self, main_content):
+        """Process HTML content for better readability in eBook format."""
+        # First apply base processing
+        super()._process_content(main_content)
+
+        if not isinstance(main_content, Tag):
+            return
+
+        try:
+            # Remove elements that don't work well in ebooks
+            selectors_to_remove = [
+                "nav",
+                "header",
+                "footer",
+                ".theme-toggle",
+                ".edit-page-link",
+                ".search",
+                "script",
+                "iframe",
+                ".logo",
+                ".social-links",
+                ".feedback",
+                ".sidebar",
+            ]
+
+            for selector in selectors_to_remove:
+                try:
+                    for element in main_content.select(selector):
+                        if element:
+                            element.extract()
+                except Exception:
+                    # Continue even if a particular selector fails
+                    pass
+
+            # Fix code blocks for better ebook rendering
+            for pre in main_content.find_all("pre"):
+                if not pre.get("class"):
+                    pre["class"] = "code"
+
+            # Process React-specific callout styles
+            for note in main_content.select(
+                ".admonition, .note, .warning, .pitfall, .caution, .info"
+            ):
+                note_type = "Note"
+                note_class = note.get("class", [])
+
+                if (
+                    "warning" in note_class
+                    or "caution" in note_class
+                    or "pitfall" in note_class
+                ):
+                    note_type = "Warning"
+                elif "info" in note_class:
+                    note_type = "Info"
+                elif "note" in note_class:
+                    note_type = "Note"
+
+                # Add a clear heading if not present
+                if note.find("h4") is None and note.find("strong") is None:
+                    strong = main_content.new_tag("strong")
+                    strong.string = f"{note_type}: "
+                    note.insert(0, strong)
+
+        except Exception as e:
+            # Catch any errors in the processing, but allow the content to be used
+            self.logger.warning(f"Error processing React content: {e}")
+
+
 def load_spider_config():
     """
     Load the spider configuration from config.json
 
     Returns:
-        dict: Dictionary of spider configurations by ID
+        dict: Spider configuration including available spiders and their settings
     """
-    # Try the path depending on where we're running from
-    possible_paths = [
-        os.path.join("backend", "spiders", "config.json"),  # From project root
-        os.path.join("spiders", "config.json"),  # From backend directory
-        os.path.join("..", "spiders", "config.json"),  # From scripts directory
-    ]
-
-    for config_path in possible_paths:
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    config = json.load(f)
-                    return {
-                        spider["id"]: spider
-                        for spider in config.get("spiders", [])
-                    }
-            except Exception as e:
-                logger.error(
-                    f"Error loading spider config from {config_path}: {e}"
-                )
-                continue
-
-    logger.error("Could not find config.json in any expected location")
-    return {}
-
-
-def run_spider(spider_id):
-    """
-    Run a spider by ID using spider_runner.py
-
-    Args:
-        spider_id (str): The ID of the spider to run
-
-    Returns:
-        bool: True if the spider ran successfully, False otherwise
-    """
-    logger.info(f"Running spider: {spider_id}")
-
-    # Try to find the spider_runner.py script
-    script_paths = [
-        os.path.join("backend", "scripts", "spider_runner.py"),
-        os.path.join("scripts", "spider_runner.py"),
-        os.path.join(".", "spider_runner.py"),
-    ]
-
-    script_path = None
-    for path in script_paths:
-        if os.path.exists(path):
-            script_path = path
-            break
-
-    if not script_path:
-        logger.error("Could not find spider_runner.py")
-        return False
-
+    # Always resolve path relative to this script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "..", "spiders", "config.json")
+    config_path = os.path.normpath(config_path)
     try:
-        # Initialize progress bar
-        if TQDM_AVAILABLE:
-            print(f"{Colors.CYAN}Starting spider: {spider_id}{Colors.RESET}")
-
-            # Initial progress bar
-            with tqdm(
-                total=100,
-                desc=f"Crawling with {Colors.GREEN}{spider_id}{Colors.RESET}",
-                bar_format="{desc}: |{bar}| {percentage:3.0f}% [elapsed: {elapsed}]",
-                leave=True,
-            ) as pbar:
-                # Spider process
-                process = subprocess.Popen(
-                    [sys.executable, script_path, spider_id],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1,
-                    universal_newlines=True,
-                )
-
-                # Read output while showing progress
-                output = []
-                error_output = []
-
-                # Track pages and items
-                pages_found = 0
-                items_scraped = 0
-                total_pages_estimate = 100  # Initial estimate
-                current_status = "Initializing crawler..."
-
-                # Read output while running and parse for progress indicators
-                start_time = time.time()
-                last_update_time = start_time
-                update_interval = 0.1  # Update at most every 0.1 seconds
-
-                while process.poll() is None:
-                    # Read any available output
-                    line = process.stdout.readline()
-                    if line:
-                        output.append(line.strip())
-
-                        # Extract progress information from Scrapy output
-                        if "Crawled" in line and "pages" in line:
-                            try:
-                                # Extract numbers from strings like "Crawled 42 pages"
-                                pages_found = int(
-                                    line.split("Crawled")[1]
-                                    .split("pages")[0]
-                                    .strip()
-                                )
-                                # Update total estimate if it seems too small
-                                if pages_found > total_pages_estimate * 0.8:
-                                    total_pages_estimate = max(
-                                        pages_found + 20,
-                                        int(pages_found * 1.2),
-                                    )
-                                current_status = f"Found {pages_found} pages"
-                            except (ValueError, IndexError):
-                                pass
-
-                        if "Scraped" in line and "items" in line:
-                            try:
-                                # Extract numbers from strings like "Scraped 15 items"
-                                items_scraped = int(
-                                    line.split("Scraped")[1]
-                                    .split("items")[0]
-                                    .strip()
-                                )
-                                current_status = f"Scraped {items_scraped} items from {pages_found} pages"
-                            except (ValueError, IndexError):
-                                pass
-
-                        # Look for specific page being processed
-                        if "Processing:" in line or "Scraping:" in line:
-                            current_url = line.split(":", 1)[1].strip()
-                            # Truncate long URLs for display
-                            if len(current_url) > 60:
-                                current_url = current_url[:57] + "..."
-                            current_status = f"Processing: {current_url}"
-
-                    # Check for stderr output
-                    err_line = process.stderr.readline()
-                    if err_line:
-                        error_output.append(err_line.strip())
-                        if "ERROR" in err_line:
-                            current_status = f"Error: {err_line.strip()}"
-
-                    # Update progress bar but not too frequently (avoid flickering)
-                    current_time = time.time()
-                    if current_time - last_update_time > update_interval:
-                        # Calculate progress percentage based on pages found vs estimated
-                        if pages_found > 0:
-                            progress = min(
-                                95,
-                                int(
-                                    (pages_found / total_pages_estimate) * 100
-                                ),
-                            )
-                        else:
-                            # Create pulsing effect for initial crawling
-                            elapsed = current_time - start_time
-                            progress = int(
-                                10 + 10 * (1 + math.sin(elapsed))
-                            )  # Oscillates between 0-20%
-
-                        # Update progress bar with new position and description
-                        pbar.n = progress
-                        elapsed_time = int(current_time - start_time)
-                        minutes, seconds = divmod(elapsed_time, 60)
-                        time_str = f"{minutes:02d}:{seconds:02d}"
-                        pbar.set_description(f"[{time_str}] {current_status}")
-                        pbar.refresh()
-
-                        last_update_time = current_time
-
-                    time.sleep(0.05)
-
-                # Capture any remaining output
-                stdout, stderr = process.communicate()
-                if stdout:
-                    output.extend(stdout.splitlines())
-                if stderr:
-                    error_output.extend(stderr.splitlines())
-
-                # Set to 100% when done
-                pbar.n = 100
-                pbar.set_description(
-                    f"Completed: {items_scraped} items from {pages_found} pages"
-                )
-                pbar.refresh()
-
-                # Check the process return code
-                if process.returncode != 0:
-                    logger.error(
-                        f"{Colors.RED}Error running spider {spider_id}{Colors.RESET}"
-                    )
-                    for err in error_output:
-                        logger.error(err)
-                    return False
-
-                # Log the output (for debug purposes)
-                for out in output:
-                    logger.debug(out)
-
-                print(
-                    f"{Colors.GREEN}✓ Spider {spider_id} completed successfully: {items_scraped} items from {pages_found} pages{Colors.RESET}"
-                )
-        else:
-            # Run the spider runner as a subprocess without progress bar
-            result = subprocess.run(
-                [sys.executable, script_path, spider_id],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-            # Log the output
-            logger.info(result.stdout)
-            if result.stderr:
-                logger.warning(result.stderr)
-
-        logger.info(f"Spider {spider_id} completed successfully")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error running spider {spider_id}: {e}")
-        logger.error(e.stdout)
-        logger.error(e.stderr)
-        return False
-
-
-def make_ebook(spider_id, output_filename=None):
-    """
-    Create an ebook from the specified spider's output
-
-    Args:
-        spider_id (str): The ID of the spider
-        output_filename (str): Optional output filename
-
-    Returns:
-        str: Path to the created EPUB file or None if failed
-    """
-    logger.info(f"Creating ebook for spider: {spider_id}")
-
-    # Format output filename if provided
-    if output_filename and not output_filename.endswith(".epub"):
-        output_filename = f"{output_filename}.epub"
-
-    try:
-        # Show progress bar for ebook creation
-        if TQDM_AVAILABLE:
-            print(f"{Colors.CYAN}Creating {spider_id} ebook...{Colors.RESET}")
-
-            # Calculate estimated number of steps based on spider ID
-            input_file = os.path.join("backend", "outputs", f"{spider_id}.jl")
-
-            # Count chapters for accurate progress (removing unused variable)
-            try:
-                with open(input_file, "r", encoding="utf-8"):
-                    # Just check if file exists and is readable
-                    pass
-            except Exception:
-                logger.warning(
-                    f"Could not access {input_file} for chapter counting"
-                )
-
-            # Create a progress bar with estimated steps
-            with tqdm(
-                total=100,
-                desc=f"Creating {Colors.GREEN}{spider_id}{Colors.RESET} ebook",
-                bar_format="{desc}: |{bar}| {percentage:3.0f}% [elapsed: {elapsed}]",
-                leave=True,
-            ) as pbar:
-                # Step 1: Initialize maker
-                start_time = time.time()
-
-                pbar.set_description("Initializing ebook maker")
-                if spider_id == "python_docs":
-                    maker = PythonDocsEbookMaker(
-                        title="Python 3 Documentation",
-                        author="Python Software Foundation",
-                        language="en",
-                    )
-                elif spider_id == "mdn_docs":
-                    maker = MDNEbookMaker(
-                        spider_id="mdn_docs",
-                        title="MDN JavaScript Documentation",
-                        author="Mozilla Contributors",
-                        language="en",
-                    )
-                else:
-                    logger.error(
-                        f"{Colors.RED}Unsupported spider ID: {spider_id}{Colors.RESET}"
-                    )
-                    return None
-
-                pbar.n = 5  # Initialize to 5%
-                pbar.refresh()
-
-                # Patch the maker's load_chapters and create_epub methods to update our progress bar
-                original_load_chapters = maker.load_chapters
-                original_create_epub = maker.create_epub
-
-                # Keep track of chapters processed
-                chapters_processed = 0
-
-                # Patch load_chapters to update progress
-                def load_chapters_with_progress():
-                    pbar.set_description(
-                        f"Loading chapters from {spider_id}.jl"
-                    )
-                    chapters = original_load_chapters()
-                    pbar.n = 10
-                    pbar.set_description(f"Loaded {len(chapters)} chapters")
-                    pbar.refresh()
-                    return chapters
-
-                # Patch create_epub to track individual chapter processing
-                def create_epub_with_progress(output_filename=None):
-                    # The wrapped version of create_epub that shows more accurate progress
-                    nonlocal chapters_processed
-
-                    # Load chapters
-                    chapters = load_chapters_with_progress()
-                    if not chapters:
-                        pbar.set_description(
-                            f"{Colors.RED}No chapters found!{Colors.RESET}"
-                        )
-                        return None
-
-                    try:
-                        # Initialize book
-                        elapsed = int(time.time() - start_time)
-                        pbar.set_description(
-                            f"[{elapsed}s] Initializing book structure"
-                        )
-                        maker.init_book()  # We don't need to store the return value
-                        pbar.n = 15
-                        pbar.refresh()
-
-                        # Track current file for better status updates
-                        current_file = output_filename or f"{spider_id}.epub"
-
-                        # Create chapters - this is the main work
-                        url_to_filename = {}
-
-                        # First pass: Map URLs to filenames (fast)
-                        pbar.set_description(
-                            f"[{elapsed}s] Creating chapter map"
-                        )
-                        for i, chap in enumerate(chapters):
-                            fname = f"chap_{i + 1}.xhtml"
-                            url_to_filename[chap["url"]] = fname
-
-                        pbar.n = 20
-                        pbar.refresh()
-
-                        # Second pass: Process chapters (slow, main progress updates here)
-                        base_progress = 20
-                        chapter_progress_range = (
-                            60  # 20-80% range for chapter processing
-                        )
-
-                        # Calculate increment per chapter
-                        chapter_increment = (
-                            chapter_progress_range / len(chapters)
-                            if chapters
-                            else 0
-                        )
-
-                        # Process each chapter
-                        for i, chap in enumerate(chapters):
-                            elapsed = int(time.time() - start_time)
-                            chapter_title = chap.get(
-                                "title", f"Chapter {i + 1}"
-                            )
-
-                            # Truncate long titles for display
-                            display_title = chapter_title
-                            if len(display_title) > 40:
-                                display_title = display_title[:37] + "..."
-
-                            # Show progress with chapter number and title
-                            pbar.set_description(
-                                f"[{elapsed}s] Processing chapter {i + 1}/{len(chapters)}: {display_title}"
-                            )
-
-                            # Process this chapter and add to book
-                            chapters_processed += 1
-
-                            # Update progress based on chapters processed
-                            current_progress = base_progress + (
-                                chapters_processed * chapter_increment
-                            )
-                            pbar.n = min(80, int(current_progress))
-                            pbar.refresh()
-
-                            # Small delay to avoid UI flicker
-                            if i % 10 == 0:
-                                time.sleep(0.01)
-
-                        # Building navigation and finalizing ebook
-                        elapsed = int(time.time() - start_time)
-                        pbar.n = 85
-                        pbar.set_description(f"[{elapsed}s] Adding CSS styles")
-                        pbar.refresh()
-                        time.sleep(0.1)
-
-                        pbar.n = 90
-                        pbar.set_description(
-                            f"[{elapsed}s] Building table of contents"
-                        )
-                        pbar.refresh()
-                        time.sleep(0.1)
-
-                        # Writing EPUB
-                        pbar.n = 95
-                        pbar.set_description(
-                            f"[{elapsed}s] Writing EPUB to {current_file}"
-                        )
-                        pbar.refresh()
-
-                        # Actually create the ebook - call original method
-                        result = original_create_epub(output_filename)
-
-                        # Show final steps and completion
-                        elapsed = int(time.time() - start_time)
-                        minutes, seconds = divmod(elapsed, 60)
-                        time_str = f"{minutes}m {seconds}s"
-
-                        if result:
-                            pbar.n = 100
-                            file_size = os.path.getsize(result)
-                            size_kb = file_size / 1024
-                            if size_kb > 1024:
-                                size_str = f"{size_kb / 1024:.1f} MB"
-                            else:
-                                size_str = f"{size_kb:.1f} KB"
-
-                            pbar.set_description(
-                                f"{Colors.GREEN}Completed in {time_str}: {chapters_processed} chapters, {size_str}{Colors.RESET}"
-                            )
-                        else:
-                            pbar.n = 100
-                            pbar.set_description(
-                                f"{Colors.RED}Failed to create EPUB after {time_str}{Colors.RESET}"
-                            )
-                        pbar.refresh()
-
-                        return result
-
-                    except Exception as e:
-                        pbar.n = 100
-                        pbar.set_description(
-                            f"{Colors.RED}Error: {str(e)}{Colors.RESET}"
-                        )
-                        pbar.refresh()
-                        logger.error(f"Error in create_epub: {e}")
-                        logger.error(traceback.format_exc())
-                        return None
-
-                # Replace the methods
-                maker.load_chapters = load_chapters_with_progress
-                maker.create_epub = create_epub_with_progress
-
-                # Call the patched method
-                result = maker.create_epub(output_filename)
-
-                # Print final result
-                if result:
-                    file_size = os.path.getsize(result)
-                    size_kb = file_size / 1024
-                    if size_kb > 1024:
-                        size_str = f"{size_kb / 1024:.1f} MB"
-                    else:
-                        size_str = f"{size_kb:.1f} KB"
-                    print(
-                        f"{Colors.GREEN}✓ Created {output_filename or spider_id}.epub: {chapters_processed} chapters, {size_str}{Colors.RESET}"
-                    )
-
-        else:
-            # No progress bar available, create ebook normally
-            if spider_id == "python_docs":
-                maker = PythonDocsEbookMaker(
-                    title="Python 3 Documentation",
-                    author="Python Software Foundation",
-                    language="en",
-                )
-                result = maker.create_epub(output_filename)
-            elif spider_id == "mdn_docs":
-                maker = MDNEbookMaker(
-                    spider_id="mdn_docs",
-                    title="MDN JavaScript Documentation",
-                    author="Mozilla Contributors",
-                    language="en",
-                )
-                result = maker.create_epub(output_filename)
-            else:
-                logger.error(f"Unsupported spider ID: {spider_id}")
-                return None
-
-        return result
-    except Exception as e:
-        logger.error(f"Error creating ebook: {e}")
-        logger.error(traceback.format_exc())
-        return None
-
-
-def optimize_ebook(input_path=None):
-    """
-    Optimize ebooks using book_optimizer.sh
-
-    Args:
-        input_path (str): Optional path to the input directory
-
-    Returns:
-        bool: True if optimization was successful, False otherwise
-    """
-    logger.info("Optimizing ebooks")
-
-    # Try to find the book_optimizer.sh script
-    script_paths = [
-        os.path.join("backend", "scripts", "book_optimizer.sh"),
-        os.path.join("scripts", "book_optimizer.sh"),
-        os.path.join(".", "book_optimizer.sh"),
-    ]
-
-    script_path = None
-    for path in script_paths:
-        if os.path.exists(path):
-            script_path = path
-            break
-
-    if not script_path:
-        logger.error("Could not find book_optimizer.sh")
-        return False
-
-    try:
-        # Make sure the script is executable
-        os.chmod(script_path, 0o755)
-
-        # Prepare command
-        cmd = [script_path]
-        if input_path:
-            cmd.append(input_path)
-
-        # Show progress for optimization
-        if TQDM_AVAILABLE:
-            print("Optimizing ebooks...")
-
-            # Create a progress bar for optimization steps
-            steps = 4  # Main steps in the optimizer
-            with tqdm(
-                total=steps,
-                desc="Optimizing ebooks",
-                bar_format="{desc}: |{bar}| {percentage:3.0f}% [elapsed: {elapsed}]",
-            ) as pbar:
-                pbar.set_description("Starting optimizer")
-
-                # Run the optimizer as a subprocess
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1,
-                )
-
-                # Read output line by line and update progress
-                output = []
-                error_output = []
-
-                # Track optimization steps based on output
-                progress_markers = {
-                    "Checking for required tools": False,
-                    "Processing PDF files": False,
-                    "Processing EPUB files": False,
-                    "Summary:": False,
-                }
-
-                # In case we don't get recognizable output, fall back to time-based progress
-                start_time = time.time()
-                timeout = 60  # seconds
-
-                while True:
-                    line = process.stdout.readline()
-                    if not line and process.poll() is not None:
-                        break
-
-                    # Update based on time if we're taking too long
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time > timeout:
-                        # Ensure we complete the progress bar
-                        remaining_steps = steps - pbar.n
-                        if remaining_steps > 0:
-                            pbar.update(remaining_steps)
-                            pbar.set_description("Optimization complete")
-                        break
-
-                    if line:
-                        line = line.strip()
-                        output.append(line)
-
-                        # Update progress based on recognizable steps
-                        for marker, updated in progress_markers.items():
-                            if not updated and marker in line:
-                                pbar.update(1)
-                                pbar.set_description(f"{marker}")
-                                progress_markers[marker] = True
-                                break
-
-                        # If we see 'Error', update the description
-                        if "Error" in line:
-                            pbar.set_description(f"Error: {line[:30]}...")
-
-                # Capture any remaining output
-                stdout, stderr = process.communicate()
-                if stdout:
-                    output.append(stdout)
-                if stderr:
-                    error_output.append(stderr)
-
-                # Ensure 100% at completion
-                pbar.n = steps
-                pbar.refresh()
-
-                # Check process return code
-                if process.returncode != 0:
-                    logger.error("Error during optimization")
-                    for err in error_output:
-                        logger.error(err)
-                    return False
-
-                # Log the complete output
-                for out in output:
-                    logger.info(out)
-        else:
-            # Run the optimizer without progress bar
-            result = subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-            # Log the output
-            logger.info(result.stdout)
-            if result.stderr:
-                logger.warning(result.stderr)
-
-        logger.info("Ebook optimization completed successfully")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error optimizing ebooks: {e}")
-        logger.error(e.stdout)
-        logger.error(e.stderr)
-        return False
-
-
-def list_spiders():
-    """
-    List available spiders from the configuration
-    """
-    spider_configs = load_spider_config()
-    if not spider_configs:
-        print(
-            f"{Colors.YELLOW}No spiders found in configuration{Colors.RESET}"
-        )
-        return
-
-    print(f"\n{Colors.CYAN}{Colors.BOLD}Available Spiders:{Colors.RESET}")
-    print(
-        f"{Colors.BLUE}========================================{Colors.RESET}"
-    )
-    for spider_id, config in spider_configs.items():
-        print(
-            f"  {Colors.BOLD}ID:{Colors.RESET} {Colors.GREEN}{spider_id}{Colors.RESET}"
-        )
-        print(
-            f"  {Colors.BOLD}Name:{Colors.RESET} {config.get('name', 'Unnamed')}"
-        )
-        print(
-            f"  {Colors.BOLD}Description:{Colors.RESET} {config.get('description', 'No description')}"
-        )
-        print(
-            f"{Colors.BLUE}----------------------------------------{Colors.RESET}"
-        )
+        with open(config_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.warning(f"Config file not found at {config_path}")
+        return {"spiders": {}}
+    except json.JSONDecodeError:
+        logger.error(f"Error parsing config file at {config_path}")
+        return {"spiders": {}}
 
 
 def main():
-    """Main function to parse arguments and run the workflow"""
     parser = argparse.ArgumentParser(
-        description="TukuyBooks Unified Ebook Maker"
+        description="TukuyBooks Unified Ebook Maker",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        "--spider", help="Run the specified spider before creating ebooks"
+        "--spider",
+        type=str,
+        help="Run the specified spider before creating ebooks",
     )
     parser.add_argument(
         "--make-ebook",
+        type=str,
         help="Create an ebook from the specified spider's output",
     )
     parser.add_argument(
-        "--optimize", action="store_true", help="Optimize the generated ebooks"
+        "--convert",  # <-- changed from --optimize
+        action="store_true",
+        help="Convert an EPUB to PDF using book_converter.sh",
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Run the complete workflow (scrape, make ebook, optimize)",
+        help="Run the complete workflow (scrape, make ebook, convert)",
     )
     parser.add_argument(
         "--list", action="store_true", help="List available spiders"
     )
     parser.add_argument(
-        "--output", help="Specify output filename (without extension)"
+        "--output",
+        type=str,
+        help="Specify output filename (without extension)",
     )
-
     args = parser.parse_args()
 
-    # If no arguments, show help
-    if len(sys.argv) == 1:
-        parser.print_help()
-        return
-
-    # List available spiders
     if args.list:
-        list_spiders()
+        config = load_spider_config()
+        spiders = config.get("spiders", {})
+        if isinstance(spiders, dict) and spiders:
+            print(f"{Colors.BOLD}Available spiders:{Colors.RESET}")
+            for spider_id, spider_info in spiders.items():
+                desc = spider_info.get("description", "")
+                print(f"  {Colors.CYAN}{spider_id}{Colors.RESET} - {desc}")
+        elif isinstance(spiders, list) and spiders:
+            print(f"{Colors.BOLD}Available spiders:{Colors.RESET}")
+            for spider in spiders:
+                if isinstance(spider, dict):
+                    spider_id = spider.get("id", "(unknown)")
+                    desc = spider.get("description", "")
+                    print(f"  {Colors.CYAN}{spider_id}{Colors.RESET} - {desc}")
+                else:
+                    print(f"  {Colors.CYAN}{spider}{Colors.RESET}")
+        else:
+            print(f"{Colors.YELLOW}No spiders found in config.{Colors.RESET}")
         return
 
-    # Run the complete workflow if --all is specified
-    if args.all:
-        spider_configs = load_spider_config()
-        if not spider_configs:
-            logger.error("No spiders found in configuration")
-            return
-
-        success = True
-        total_spiders = len(spider_configs)
-
-        # Show a nice header for the complete workflow with colors
-        border = f"{Colors.BLUE}{'=' * 60}{Colors.RESET}"
-        print(f"\n{border}")
-        print(
-            f"{Colors.CYAN}{Colors.BOLD}  STARTING COMPLETE WORKFLOW FOR {total_spiders} SPIDERS{Colors.RESET}"
-        )
-        print(f"{border}")
-
-        # Track time for the entire process
-        workflow_start_time = time.time()
-
-        # Process each spider
-        for i, spider_id in enumerate(spider_configs, 1):
-            print(
-                f"\n{Colors.YELLOW}[{i}/{total_spiders}]{Colors.RESET} {Colors.BOLD}Processing {spider_id.upper()}:{Colors.RESET}"
-            )
-            print(f"{Colors.BLUE}{'-' * 40}{Colors.RESET}")
-
-            # Run spider
-            print(
-                f"{Colors.CYAN}➤ Step 1:{Colors.RESET} Running spider for {Colors.BOLD}{spider_id}{Colors.RESET}"
-            )
-            if not run_spider(spider_id):
-                print(
-                    f"{Colors.RED}✘ Failed to run spider: {spider_id}{Colors.RESET}"
-                )
-                success = False
-                continue
-
-            # Create ebook
-            print(
-                f"{Colors.CYAN}➤ Step 2:{Colors.RESET} Creating ebook for {Colors.BOLD}{spider_id}{Colors.RESET}"
-            )
-            output_path = make_ebook(spider_id, args.output)
-            if not output_path:
-                print(
-                    f"{Colors.RED}✘ Failed to create ebook for: {spider_id}{Colors.RESET}"
-                )
-                success = False
-            else:
-                print(
-                    f"  {Colors.GREEN}✓ Created:{Colors.RESET} {output_path}"
-                )
-
-        # Optimize ebooks
-        print(f"\n{Colors.CYAN}➤ Step 3:{Colors.RESET} Optimizing all ebooks")
-        if not optimize_ebook():
-            print(f"{Colors.RED}✘ Failed to optimize ebooks{Colors.RESET}")
-            success = False
-
-        # Show completion message with total time
-        total_time = time.time() - workflow_start_time
-        minutes, seconds = divmod(int(total_time), 60)
-        print(f"\n{border}")
+    if args.spider:
+        spider_id = args.spider
+        print(f"{Colors.BLUE}Running spider: {spider_id}{Colors.RESET}")
+        success = spider_runner.run_spider(spider_id)
         if success:
             print(
-                f"  {Colors.GREEN}✓ WORKFLOW COMPLETED SUCCESSFULLY{Colors.RESET} in {Colors.BOLD}{minutes}m {seconds}s{Colors.RESET}"
+                f"{Colors.GREEN}Spider '{spider_id}' completed successfully.{Colors.RESET}"
             )
         else:
             print(
-                f"  {Colors.RED}⚠ WORKFLOW COMPLETED WITH ERRORS{Colors.RESET} in {Colors.BOLD}{minutes}m {seconds}s{Colors.RESET}"
+                f"{Colors.RED}Spider '{spider_id}' failed or not found.{Colors.RESET}"
             )
-        print(f"{border}\n")
+        return
 
-        return success
-
-    # Run individual steps based on arguments
-    success = True
-
-    # Run spider if specified
-    if args.spider:
-        if not run_spider(args.spider):
-            logger.error(f"Failed to run spider: {args.spider}")
-            success = False
-
-    # Create ebook if specified
     if args.make_ebook:
-        if not make_ebook(args.make_ebook, args.output):
-            logger.error(f"Failed to create ebook for: {args.make_ebook}")
-            success = False
+        spider_id = args.make_ebook
+        output_filename = args.output if args.output else None
 
-    # Optimize ebooks if specified
-    if args.optimize:
-        if not optimize_ebook():
-            logger.error("Failed to optimize ebooks")
-            success = False
+        # Select the correct EbookMaker class
+        if spider_id == "python_docs":
+            maker = PythonDocsEbookMaker()
+        elif spider_id == "mdn_docs":
+            maker = MDNEbookMaker()
+        elif spider_id == "react_docs":
+            maker = ReactEbookMaker()
+        else:
+            print(f"{Colors.RED}Unknown spider ID: {spider_id}{Colors.RESET}")
+            return
 
-    return success
+        result = maker.create_epub(output_filename)
+        if result:
+            print(f"{Colors.GREEN}EPUB created: {result}{Colors.RESET}")
+        else:
+            print(
+                f"{Colors.RED}Failed to create EPUB for spider '{spider_id}'{Colors.RESET}"
+            )
+        return
+
+    if args.convert:
+        # Always resolve converter script relative to this script
+        converter_script = os.path.join(SCRIPT_DIR, "book_converter.sh")
+        if not os.path.isfile(converter_script):
+            print(
+                f"{Colors.RED}Converter script not found: {converter_script}{Colors.RESET}"
+            )
+            return
+        print(f"{Colors.BLUE}Running book converter...{Colors.RESET}")
+
+        # Ensure unbuffered output for tqdm compatibility
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
+        # Use subprocess with unbuffered output, forwarding stdout/stderr live
+        process = subprocess.Popen(
+            ["bash", converter_script],
+            cwd=SCRIPT_DIR,
+            env=env,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            bufsize=1,
+        )
+        process.wait()
+        if process.returncode == 0:
+            print(
+                f"{Colors.GREEN}Book conversion completed successfully.{Colors.RESET}"
+            )
+        else:
+            print(
+                f"{Colors.RED}Book conversion failed with exit code {process.returncode}.{Colors.RESET}"
+            )
+        return
+
+    # ...other CLI logic can be added here...
 
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()
