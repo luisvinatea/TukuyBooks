@@ -21,7 +21,7 @@ RUN mkdir -p backend/outputs && chmod 777 backend/outputs
 # Copy entrypoint script
 COPY docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
-RUN chmod +x backend/scripts/book_optimizer.sh
+RUN chmod +x backend/scripts/book_converter.sh
 
 # Set the entrypoint
 ENTRYPOINT ["./docker-entrypoint.sh"]

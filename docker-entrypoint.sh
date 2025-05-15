@@ -68,7 +68,7 @@ case "$COMMAND" in
 
     # Optimize the ebook
     echo "Step 3: Optimizing ebook"
-    ./scripts/book_optimizer.sh "./outputs" "./outputs/optimized"
+    ./scripts/book_converter.sh "./outputs" "./outputs/optimized"
     ;;
 
 "help" | *)
