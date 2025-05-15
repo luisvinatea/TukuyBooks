@@ -61,6 +61,7 @@ def run_spider(spider_name):
     Returns:
         bool: True if the spider ran successfully, False otherwise
     """
+    print(f"Starting spider: {spider_name}")
     logger.info(f"Starting spider: {spider_name}")
 
     try:
@@ -136,8 +137,11 @@ def run_spider(spider_name):
             from scrapy.crawler import CrawlerProcess
             from scrapy.utils.project import get_project_settings
 
+            print(f"Setting up crawler for {spider_name}...")
+
             settings = get_project_settings()
             settings.set("FEED_FORMAT", "jsonlines")
+            settings.set("LOG_LEVEL", "INFO")  # Ensure we get progress info
 
             # Always resolve output path relative to project root
             project_root = Path(__file__).resolve().parents[2]
@@ -147,19 +151,72 @@ def run_spider(spider_name):
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             settings.set("FEED_URI", output_path)
 
+            print(f"Output will be saved to: {output_path}")
+            print(f"Crawling page(s) defined in {spider_name} spider...")
+
+            # Add a custom print extension to track progress
+            from scrapy import signals
+
+            class ProgressPrinter:
+                @classmethod
+                def from_crawler(cls, crawler):
+                    ext = cls()
+                    crawler.signals.connect(
+                        ext.spider_opened, signal=signals.spider_opened
+                    )
+                    crawler.signals.connect(
+                        ext.item_scraped, signal=signals.item_scraped
+                    )
+                    crawler.signals.connect(
+                        ext.spider_closed, signal=signals.spider_closed
+                    )
+                    ext.item_count = 0
+                    return ext
+
+                def spider_opened(self, spider):
+                    print(f"Starting crawl with spider: {spider.name}")
+
+                def item_scraped(self, item, spider):
+                    self.item_count += 1
+                    if self.item_count % 10 == 0:  # Print every 10 items
+                        print(
+                            f"Processing items: {self.item_count} items scraped"
+                        )
+
+                def spider_closed(self, spider):
+                    print(
+                        f"Finished crawl: {self.item_count} total items scraped"
+                    )
+
+            # Enable the extension
+            settings.set(
+                "EXTENSIONS",
+                {
+                    "spider_runner.ProgressPrinter": 500,  # Priority between 0-1000
+                },
+            )
+
             process = CrawlerProcess(settings)
             process.crawl(spider_class)  # Pass the class, not an instance
+
+            print("Spider is now crawling, please wait...")
             process.start()  # This blocks until the spider is finished
 
+            print(f"Spider {spider_name} finished successfully!")
+            print(f"Data written to {output_path}")
             logger.info(f"Spider {spider_name} finished successfully")
             return True
 
         except ImportError as e:
-            logger.error(f"Could not import spider module: {e}")
+            error_msg = f"Could not import spider module: {e}"
+            print(f"ERROR: {error_msg}")
+            logger.error(error_msg)
             return False
 
     except Exception as e:
-        logger.error(f"Error running spider {spider_name}: {e}")
+        error_msg = f"Error running spider {spider_name}: {e}"
+        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         return False
 
 

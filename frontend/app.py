@@ -212,29 +212,93 @@ def run_spider_with_progress(spider_id):
     progress_bar = st.progress(0.0)
     output_area = st.empty()
 
-    # Create a StringIO object to capture output
+    # Create a list to capture output
     output = []
 
-    def progress_callback(percent, message):
-        progress_text.write(f"Progress: {message}")
-        progress_bar.progress(percent)
-        output.append(message)
-        output_area.code("\n".join(output))
+    # Set up console redirect
+    import io
+    import contextlib
+    from threading import Thread
+    import time
+
+    # Create a StringIO object to capture stdout
+    stdout_capture = io.StringIO()
+
+    # Function to periodically check for new output
+    def update_ui_from_capture():
+        last_pos = 0
+        stages = {
+            "Starting crawl": 0.1,
+            "Crawling page": 0.3,
+            "Processing items": 0.7,
+            "Finished crawl": 0.95,
+        }
+
+        while True:
+            # Get any new output
+            stdout_capture.seek(last_pos)
+            new_output = stdout_capture.read()
+
+            if new_output:
+                lines = new_output.splitlines()
+                for line in lines:
+                    if line.strip():
+                        output.append(line.strip())
+
+                        # Update progress based on keywords
+                        for keyword, value in stages.items():
+                            if keyword in line:
+                                progress_bar.progress(value)
+                                break
+
+                # Update the UI
+                progress_text.write(
+                    f"Progress: {output[-1] if output else 'Starting...'}"
+                )
+                output_area.code("\n".join(output[-20:]))  # Show last 20 lines
+
+                # Update position
+                last_pos = stdout_capture.tell()
+
+            # Check if the thread should exit
+            if (
+                hasattr(update_ui_from_capture, "stop")
+                and update_ui_from_capture.stop
+            ):
+                break
+
+            time.sleep(0.1)
+
+    # Start the UI update thread
+    update_thread = Thread(target=update_ui_from_capture)
+    update_thread.daemon = True
+    update_thread.start()
 
     try:
         progress_text.write("Starting spider...")
-        success = spider_runner.run_spider(
-            spider_id, progress_callback=progress_callback
-        )
+        progress_bar.progress(0.05)
+
+        # Redirect stdout to our capture
+        with contextlib.redirect_stdout(stdout_capture):
+            success = spider_runner.run_spider(spider_id)
 
         if success:
             progress_bar.progress(1.0)
             progress_text.write("Spider completed successfully!")
-            return True, "\n".join(output)
         else:
             progress_text.write("Spider failed or not found.")
-            return False, "\n".join(output)
+
+        # Stop the UI update thread
+        update_ui_from_capture.stop = True
+        update_thread.join(timeout=1.0)
+
+        return success, "\n".join(output)
     except Exception as e:
+        # Stop the UI update thread
+        if "update_ui_from_capture" in locals():
+            update_ui_from_capture.stop = True
+            update_thread.join(timeout=1.0)
+
         progress_text.write(f"Error running spider: {str(e)}")
         return False, str(e)
 
@@ -243,6 +307,57 @@ def create_ebook_with_progress(spider_id, output_filename=None):
     """Create an ebook with progress updates"""
     progress_text = st.empty()
     progress_bar = st.progress(0.0)
+    output_area = st.empty()
+
+    # Create a list to capture output
+    output = []
+
+    # Set up console redirect
+    import io
+    import contextlib
+    from threading import Thread
+    import time
+
+    # Create a StringIO object to capture stdout
+    stdout_capture = io.StringIO()
+
+    # Function to periodically check for new output
+    def update_ui_from_capture():
+        last_pos = 0
+
+        while True:
+            # Get any new output
+            stdout_capture.seek(last_pos)
+            new_output = stdout_capture.read()
+
+            if new_output:
+                lines = new_output.splitlines()
+                for line in lines:
+                    if line.strip():
+                        output.append(line.strip())
+
+                # Update the UI
+                if output:
+                    output_area.code(
+                        "\n".join(output[-20:])
+                    )  # Show last 20 lines
+
+                # Update position
+                last_pos = stdout_capture.tell()
+
+            # Check if the thread should exit
+            if (
+                hasattr(update_ui_from_capture, "stop")
+                and update_ui_from_capture.stop
+            ):
+                break
+
+            time.sleep(0.1)
+
+    # Start the UI update thread
+    update_thread = Thread(target=update_ui_from_capture)
+    update_thread.daemon = True
+    update_thread.start()
 
     try:
         progress_text.write("Initializing ebook creation...")
@@ -270,12 +385,17 @@ def create_ebook_with_progress(spider_id, output_filename=None):
             # Call original method but update progress
             progress_text.write("Processing chapters...")
             progress_bar.progress(0.4)
-            result = original_create_epub(output_filename)
+
+            # Use our stdout capture
+            with contextlib.redirect_stdout(stdout_capture):
+                result = original_create_epub(output_filename)
+
             if result:
                 progress_text.write(f"EPUB created: {result}")
                 progress_bar.progress(1.0)
             else:
                 progress_text.write("Failed to create EPUB")
+
             return result
 
         maker.create_epub = create_epub_with_progress
@@ -283,12 +403,21 @@ def create_ebook_with_progress(spider_id, output_filename=None):
         # Create the ebook
         result = maker.create_epub(output_filename)
 
+        # Stop the UI update thread
+        update_ui_from_capture.stop = True
+        update_thread.join(timeout=1.0)
+
         if result:
             return True, result
         else:
-            return False, "Failed to create EPUB"
+            return False, "\n".join(output) or "Failed to create EPUB"
     except Exception as e:
         import traceback
+
+        # Stop the UI update thread if it exists
+        if "update_ui_from_capture" in locals():
+            update_ui_from_capture.stop = True
+            update_thread.join(timeout=1.0)
 
         progress_text.write(f"Error creating ebook: {str(e)}")
         return False, traceback.format_exc()
