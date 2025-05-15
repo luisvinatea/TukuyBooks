@@ -1,5 +1,6 @@
 #!/bin/bash
-# docker-entrypoint.sh - Entry point for the Docker container
+# docker-entrypoint.sh - Entry point for TukuyBooks Docker container
+
 set -e
 
 # Default command
@@ -33,6 +34,8 @@ case "$COMMAND" in
 "convert")
     echo "Converting ebooks"
     cd backend
+    # Set DOCKER_CONTAINER=1 to ensure non-interactive mode
+    export DOCKER_CONTAINER=1
     python scripts/tukuy_ebook_maker.py --convert
     ;;
 
@@ -47,9 +50,12 @@ case "$COMMAND" in
     echo "Running full pipeline: crawl -> make-ebook -> convert"
     cd backend
 
+    # Set DOCKER_CONTAINER=1 to ensure non-interactive mode
+    export DOCKER_CONTAINER=1
+    
     # Use the unified ebook maker for the full pipeline
     echo "Running unified ebook maker pipeline for $SPIDER"
-    python scripts/tukuy_ebook_maker.py --all --spider "$SPIDER"
+    python scripts/tukuy_ebook_maker.py --spider "$SPIDER" --make-ebook "$SPIDER" --convert
     ;;
 
 "legacy-all")
