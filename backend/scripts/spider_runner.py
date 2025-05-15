@@ -9,6 +9,9 @@ import logging
 import importlib
 import json
 from pathlib import Path
+from scrapy import signals
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.project import get_project_settings
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +19,33 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger("spider_runner")
+
+
+# Add a custom print extension to track progress
+class ProgressPrinter:
+    @classmethod
+    def from_crawler(cls, crawler):
+        ext = cls()
+        crawler.signals.connect(
+            ext.spider_opened, signal=signals.spider_opened
+        )
+        crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
+        crawler.signals.connect(
+            ext.spider_closed, signal=signals.spider_closed
+        )
+        ext.item_count = 0
+        return ext
+
+    def spider_opened(self, spider):
+        print(f"Starting crawl with spider: {spider.name}")
+
+    def item_scraped(self, item, spider):
+        self.item_count += 1
+        if self.item_count % 10 == 0:  # Print every 10 items
+            print(f"Processing items: {self.item_count} items scraped")
+
+    def spider_closed(self, spider):
+        print(f"Finished crawl: {self.item_count} total items scraped")
 
 
 def load_spider_config():
@@ -144,9 +174,6 @@ def run_spider(spider_name):
                 return False
 
             # Configure scrapy and run the spider class (not an instance)
-            from scrapy.crawler import CrawlerProcess
-            from scrapy.utils.project import get_project_settings
-
             print(f"Setting up crawler for {spider_name}...")
 
             settings = get_project_settings()
@@ -163,40 +190,6 @@ def run_spider(spider_name):
 
             print(f"Output will be saved to: {output_path}")
             print(f"Crawling page(s) defined in {spider_name} spider...")
-
-            # Add a custom print extension to track progress
-            from scrapy import signals
-
-            class ProgressPrinter:
-                @classmethod
-                def from_crawler(cls, crawler):
-                    ext = cls()
-                    crawler.signals.connect(
-                        ext.spider_opened, signal=signals.spider_opened
-                    )
-                    crawler.signals.connect(
-                        ext.item_scraped, signal=signals.item_scraped
-                    )
-                    crawler.signals.connect(
-                        ext.spider_closed, signal=signals.spider_closed
-                    )
-                    ext.item_count = 0
-                    return ext
-
-                def spider_opened(self, spider):
-                    print(f"Starting crawl with spider: {spider.name}")
-
-                def item_scraped(self, item, spider):
-                    self.item_count += 1
-                    if self.item_count % 10 == 0:  # Print every 10 items
-                        print(
-                            f"Processing items: {self.item_count} items scraped"
-                        )
-
-                def spider_closed(self, spider):
-                    print(
-                        f"Finished crawl: {self.item_count} total items scraped"
-                    )
 
             # Enable the extension
             settings.set(
