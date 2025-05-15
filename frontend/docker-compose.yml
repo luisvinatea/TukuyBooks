@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run /app/frontend/app.py
+    networks:
+      - tukuybooks-network
+
+networks:
+  tukuybooks-network:
+    driver: bridge

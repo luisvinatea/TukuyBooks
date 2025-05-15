@@ -2,9 +2,36 @@
 
 Welcome to **TukuyBooks**, an open-source initiative to scrape, process, and convert freely available online documentation into high-quality, offline-accessible EPUBs and PDFs. Our mission is to preserve and democratize knowledge from the open-source internet, making it available to anyone, anywhere, without barriers.
 
-## Direct Usage
+## Usage Options
 
-You can run TukuyBooks spiders and ebook generators directly using the provided scripts:
+### Streamlit Web Interface
+
+TukuyBooks now features a user-friendly web interface built with Streamlit:
+
+```bash
+# Clone the repository
+git clone https://github.com/luisvinatea/TukuyBooks.git
+cd TukuyBooks
+
+# Set up a Python virtual environment
+python -m venv .tukuybooks
+source .tukuybooks/bin/activate
+
+# Install frontend requirements and launch
+cd frontend
+pip install -r requirements.txt
+./run_streamlit.sh
+```
+
+Or use the convenience script with automatic dependency installation:
+
+```bash
+./frontend/run_streamlit.sh --install
+```
+
+### Command Line Interface
+
+You can also run TukuyBooks spiders and ebook generators directly using the provided scripts:
 
 ```bash
 # Clone the repository
@@ -20,8 +47,8 @@ pip install -r backend/requirements.txt
 python tukuy_ebook_maker.py --list                # List available spiders
 python tukuy_ebook_maker.py --spider python_docs  # Run a specific spider
 python tukuy_ebook_maker.py --make-ebook mdn_docs # Create an ebook from scraped data
-python tukuy_ebook_maker.py --optimize            # Optimize generated ebooks
-python tukuy_ebook_maker.py --all                 # Run the complete workflow for all spiders
+python tukuy_ebook_maker.py --convert            # Convert generated ebooks
+python tukuy_ebook_maker.py --all                # Run the complete workflow for all spiders
 
 # Or use the individual scripts
 python backend/scripts/spider_runner.py --list
@@ -60,45 +87,12 @@ docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all mdn_docs
 
 The generated ebooks will be available in your local `./outputs` directory.
 
-### Using Docker Hub (Official Image)
-
-You can also use our official Docker Hub image:
-
-```bash
-# Pull the image
-docker pull luisvinatea/tukuybooks:latest
-
-# Run the full pipeline
-docker run -v $(pwd)/outputs:/app/backend/outputs luisvinatea/tukuybooks:latest all python_docs
-```
-
-For more details, see our [Docker Guide](DOCKER.md).
-
-## Online Interface
-
-The TukuyBooks web interface allows you to:
-
-- View available documentation sources
-- Start scraping processes
-- Generate EPUB/PDF files from scraped content
-- Download pre-generated ebooks
-
-**Visit the online interface:** [https://luisvinatea.github.io/TukuyBooks/](https://luisvinatea.github.io/TukuyBooks/)
-
-**API Debug Tool:** [https://luisvinatea.github.io/TukuyBooks/api-debug.html](https://luisvinatea.github.io/TukuyBooks/api-debug.html)
-
 ## Features
 
 - **Web Scraping**: Capture documentation from open-source websites with custom spiders
 - **Ebook Generation**: Transform web content into EPUB and PDF formats with proper formatting
-- **Responsive UI**: Mobile-friendly interface that works across devices
 - **Real-time Status Updates**: Monitor scraping progress with real-time notifications
 - **Offline Reading**: Download ebooks for offline reading on e-readers or other devices
-- **Dark Mode**: Comfortable reading experience in low-light environments
-- **User Activity Tracking**: Keep track of your scraping and ebook generation history
-- **Advanced Error Handling**: Automatic retry functionality for more reliable operation
-- **Accessibility**: Full keyboard navigation support and screen reader compatibility
-- **Cross-Browser Support**: Works across all modern browsers with fallbacks
 
 ## Vision
 
@@ -122,6 +116,10 @@ Below are the active spider pipelines transforming specific websites into free k
 - **MDNDocs**: Scrapes MDN JavaScript documentation from `developer.mozilla.org`.
   - Status: Active
   - Outputs: `MDNJavaScriptDocs.epub`, `MDNJavaScriptDocs.pdf`
+
+- **ReactDocs**: Scrapes React documentation from `reactjs.org`.
+  - Status: Active
+  - Outputs: `ReactDocs.epub`, `ReactDocs.pdf`
 
 *More pipelines coming soon! Suggest new websites via [Issues](https://github.com/luisvinatea/TukuyBooks/issues).*
 
@@ -153,67 +151,3 @@ TukuyBooks/
 │   └── index.html       # Main HTML file
 └── scrapy.cfg           # Scrapy configuration file
 ```
-
-## Frontend Architecture
-
-The TukuyBooks frontend is built with modern vanilla JavaScript and follows best practices for maintainable web applications:
-
-### Core Components
-
-- **API Client (`api.js`)**: Handles all communication with the backend, including automatic retries and loading indicators
-- **User Interface (`main.js`)**: Manages the UI state, event handling, and application logic
-- **Theme System**: Supports both light and dark modes with persistent user preferences
-- **Notification System**: Provides user feedback with different status types and auto-dismissal
-- **Activity Tracking**: Records user actions and displays them in an activity panel
-- **Search System**: Allows filtering of available ebooks
-- **Share Functionality**: Enables users to share ebooks across various platforms
-
-### Technical Features
-
-#### Progressive Enhancement
-
-The frontend implements progressive enhancement principles:
-
-- Core functionality works with basic JavaScript
-- Enhanced features gracefully degrade in older browsers
-- Browser compatibility checks provide feedback to users
-
-#### Error Handling
-
-Robust error handling strategy:
-
-- Automatic retry for network failures with exponential backoff
-- Detailed error messages with recovery suggestions
-- Fallback content when API requests fail
-- Offline capabilities for viewing previously loaded content
-
-#### Performance Optimization
-
-- Lazy loading images and non-critical resources
-- Minimal DOM manipulation for better performance
-- Optimized CSS with minimal dependencies
-- Efficient event delegation patterns
-
-#### Mobile First Design
-
-- Responsive design works on all screen sizes
-- Touch-friendly controls for mobile devices
-- Adaptive layout that reflows for different viewports
-- Optimized for both portrait and landscape orientations
-
-#### Accessibility
-
-- ARIA attributes for screen reader compatibility
-- Full keyboard navigation support
-- Sufficient color contrast in both light and dark modes
-- Focus management for modals and interactive elements
-- Status announcements for loading states and events
-
-## Architecture
-
-TukuyBooks uses a modern architecture:
-
-- **Frontend**: HTML/CSS/JS hosted on GitHub Pages
-- **Backend**: Node.js API deployed on Vercel (handles API requests and runs Python spiders)
-- **Spiders**: Python-based web scrapers using the Scrapy framework
-- **Ebook Generation**: Custom Python scripts for EPUB and PDF creation

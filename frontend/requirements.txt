@@ -1,0 +1,4 @@
+streamlit==1.31.0
+ebooklib
+beautifulsoup4
+tqdm
