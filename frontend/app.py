@@ -425,6 +425,11 @@ def convert_epub_to_pdf(epub_filename):
             )
             return False, f"Converter script not found: {converter_script}"
 
+        # Check if epub_filename exists
+        if not os.path.isfile(epub_filename):
+            progress_text.write(f"EPUB file not found: {epub_filename}")
+            return False, f"EPUB file not found: {epub_filename}"
+
         # Set environment variables
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
@@ -434,6 +439,11 @@ def convert_epub_to_pdf(epub_filename):
             f"Converting {os.path.basename(epub_filename)} to PDF..."
         )
         progress_bar.progress(0.1)
+
+        # Log the command we're about to run
+        output_area.code(
+            f"Running conversion script with INPUT_EPUB={epub_filename}"
+        )
 
         # Start the conversion process
         process = subprocess.Popen(
@@ -447,27 +457,59 @@ def convert_epub_to_pdf(epub_filename):
         )
 
         output = []
-        # Read the output incrementally
-        for line in iter(process.stdout.readline, ""):
-            output.append(line.strip())
-            output_area.code("\n".join(output[-20:]))  # Show last 20 lines
+        timeout = 300  # 5 minutes timeout
+        start_time = time.time()
 
-            # Update progress based on certain output markers
-            if "Starting conversion" in line:
-                progress_bar.progress(0.2)
-            elif "Converting EPUB to PDF" in line:
-                progress_bar.progress(0.5)
-            elif "Conversion completed" in line:
-                progress_bar.progress(0.9)
+        # Read the output incrementally with timeout checking
+        while process.poll() is None:
+            # Check for timeout
+            if time.time() - start_time > timeout:
+                process.terminate()
+                progress_text.write("Conversion timed out after 5 minutes.")
+                output.append(
+                    "ERROR: Conversion process timed out after 5 minutes."
+                )
+                return False, "\n".join(output)
 
-        process.wait()
+            # Read output if available
+            line = process.stdout.readline()
+            if line:
+                line = line.strip()
+                output.append(line)
+                output_area.code("\n".join(output[-20:]))  # Show last 20 lines
+
+                # Update progress based on certain output markers
+                if "Starting conversion" in line:
+                    progress_bar.progress(0.2)
+                    progress_text.write("Starting conversion...")
+                elif "Converting EPUB to PDF" in line:
+                    progress_bar.progress(0.5)
+                    progress_text.write("Converting EPUB to PDF...")
+                elif "Verbose processing" in line:
+                    progress_bar.progress(0.7)
+                    progress_text.write("Processing pages...")
+                elif "Conversion completed successfully" in line:
+                    progress_bar.progress(0.9)
+                    progress_text.write("Finalizing conversion...")
+            else:
+                # No output available, sleep briefly to avoid CPU spin
+                time.sleep(0.1)
+
+        # Process any remaining output
+        for line in process.stdout:
+            line = line.strip()
+            output.append(line)
+
+        output_area.code("\n".join(output[-20:]))
 
         if process.returncode == 0:
             progress_bar.progress(1.0)
             progress_text.write("Conversion completed successfully!")
             return True, "\n".join(output)
         else:
-            progress_text.write("Conversion failed.")
+            progress_text.write(
+                f"Conversion failed with return code {process.returncode}."
+            )
             return False, "\n".join(output)
     except Exception as e:
         import traceback
