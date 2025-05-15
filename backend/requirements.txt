@@ -11,5 +11,6 @@ chardet>=5.1.0
 html5lib>=1.1
 cssutils>=2.6.0
 flask>=3.0.0  # For the API server
+tqdm>=4.65.0  # For progress bars in CLI
 
 

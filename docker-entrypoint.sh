@@ -6,6 +6,12 @@ set -e
 COMMAND=${1:-"help"}
 SPIDER=${2:-"python_docs"}
 
+# Install tqdm for progress bars if not already installed
+if ! python -c "import tqdm" &>/dev/null; then
+    echo "Installing tqdm for progress bar support..."
+    pip install --no-cache-dir tqdm
+fi
+
 echo "========================================================"
 echo "  TukuyBooks Spider Docker Container"
 echo "========================================================"
@@ -21,19 +27,33 @@ case "$COMMAND" in
 "make-ebook")
     echo "Creating ebook from spider data: $SPIDER"
     cd backend
-    cd scripts
-    python make_ebook.py "$SPIDER"
-    cd ..
+    python scripts/tukuy_ebook_maker.py --make-ebook "$SPIDER"
     ;;
 
 "optimize")
     echo "Optimizing ebooks"
     cd backend
-    ./scripts/book_optimizer.sh "./outputs" "./outputs/optimized"
+    python scripts/tukuy_ebook_maker.py --optimize
+    ;;
+
+"unified")
+    echo "Using unified ebook maker"
+    shift # Remove the 'unified' command
+    cd backend
+    python scripts/tukuy_ebook_maker.py "$@"
     ;;
 
 "all")
     echo "Running full pipeline: crawl -> make-ebook -> optimize"
+    cd backend
+
+    # Use the unified ebook maker for the full pipeline
+    echo "Running unified ebook maker pipeline for $SPIDER"
+    python scripts/tukuy_ebook_maker.py --spider "$SPIDER" --make-ebook "$SPIDER" --optimize
+    ;;
+
+"legacy-all")
+    echo "Running legacy full pipeline: crawl -> make-ebook -> optimize"
     cd backend
 
     # Run the spider
@@ -56,13 +76,24 @@ case "$COMMAND" in
     echo "  crawl [spider_name]    - Run a spider (default: python_docs)"
     echo "  make-ebook [spider_id] - Create an ebook from spider data"
     echo "  optimize               - Optimize the generated ebooks"
-    echo "  all [spider_name]      - Run the full pipeline"
+    echo "  all [spider_name]      - Run the full pipeline with unified tool"
+    echo "  legacy-all [spider]    - Run full pipeline with original tools"
+    echo "  unified [options]      - Run the unified ebook maker directly"
     echo "  help                   - Show this help message"
+    echo ""
+    echo "Unified Tool Options:"
+    echo "  --list                - List available spiders"
+    echo "  --spider SPIDER_ID    - Run the specified spider"
+    echo "  --make-ebook SPIDER_ID - Create an ebook"
+    echo "  --optimize            - Optimize ebooks"
+    echo "  --all                 - Run complete workflow for all spiders"
+    echo "  --output OUTPUT       - Specify output filename"
     echo ""
     echo "Examples:"
     echo "  docker run -v \$(pwd)/outputs:/app/backend/outputs tukuybooks crawl python_docs"
     echo "  docker run -v \$(pwd)/outputs:/app/backend/outputs tukuybooks make-ebook python_docs"
     echo "  docker run -v \$(pwd)/outputs:/app/backend/outputs tukuybooks all python_docs"
+    echo "  docker run -v \$(pwd)/outputs:/app/backend/outputs tukuybooks unified --all"
     ;;
 esac
 

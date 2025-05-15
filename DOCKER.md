@@ -49,6 +49,35 @@ This directory contains Docker configurations to run TukuyBooks spiders locally 
 ## Available Commands
 
 - `help`: Display usage information
+- `crawl [spider_name]`: Run a specific spider
+- `make-ebook [spider_id]`: Create an ebook from scraped data
+- `optimize`: Optimize generated ebooks
+- `all [spider_name]`: Run the full pipeline with the unified tool
+- `unified [options]`: Run the unified ebook maker directly
+- `legacy-all [spider]`: Run full pipeline with original tools
+
+## Using the Unified Ebook Maker
+
+The Docker image now includes a unified ebook maker that combines all steps of the workflow. You can use it directly:
+
+```bash
+# Run the complete workflow for Python docs
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest all python_docs
+
+# Run the unified tool directly with custom options
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest unified --list
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest unified --spider python_docs --make-ebook python_docs --optimize
+docker run -v $(pwd)/outputs:/app/backend/outputs tukuybooks:latest unified --all --output "complete_docs"
+```
+
+### Unified Tool Options
+
+- `--list`: List available spiders
+- `--spider SPIDER_ID`: Run the specified spider
+- `--make-ebook SPIDER_ID`: Create an ebook from scraped data
+- `--optimize`: Optimize generated ebooks
+- `--all`: Run the complete workflow for all spiders
+- `--output OUTPUT`: Specify custom output filename (without extension)
 - `crawl [spider_name]`: Run a specific spider (default: python_docs)
 - `make-ebook [spider_id]`: Convert spider output to an ebook
 - `optimize`: Optimize the generated ebooks for size

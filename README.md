@@ -16,13 +16,16 @@ python -m venv .tukuybooks
 source .tukuybooks/bin/activate
 pip install -r backend/requirements.txt
 
-# List available spiders
+# Use the unified ebook maker script
+python tukuy_ebook_maker.py --list                # List available spiders
+python tukuy_ebook_maker.py --spider python_docs  # Run a specific spider
+python tukuy_ebook_maker.py --make-ebook mdn_docs # Create an ebook from scraped data
+python tukuy_ebook_maker.py --optimize            # Optimize generated ebooks
+python tukuy_ebook_maker.py --all                 # Run the complete workflow for all spiders
+
+# Or use the individual scripts
 python backend/scripts/spider_runner.py --list
-
-# Run a specific spider (e.g., Python docs)
 python backend/scripts/spider_runner.py python_docs
-
-# Create an ebook from the scraped data
 python backend/scripts/make_ebook.py python_docs
 
 # Build all available ebooks at once
